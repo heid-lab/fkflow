@@ -6,7 +6,7 @@ defaults:
   - data: rdb7
   - model: flow
   - callbacks: default
-  - logger: wandb
+  - logger: null
   - trainer: gpu
   - paths: default
   - extras: default
