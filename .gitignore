@@ -1,0 +1,171 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyTorch and ML models
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+
+# Training logs and outputs
+logs/
+runs/
+wandb/
+tensorboard_logs/
+checkpoints/
+saved_models/
+
+# Experiment results (keep structure, ignore data)
+results/*.csv
+results/**/*.csv
+*/results/*.csv
+*/results/**/*.csv
+*.csv
+!**/results/.gitkeep
+
+# Trained models (keep structure, ignore models)
+trained_models/*.pt
+trained_models/*.pth
+*/trained_models/*.pt
+*/trained_models/*.pth
+!**/trained_models/.gitkeep
+
+# Data files (except small test files)
+*.npz
+*.npy
+*.hdf5
+*.h5
+data/
+*/data/
+!*/data/.gitkeep
+!data/small_test_data/
+*.xyz
+!test*.xyz
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+Untitled*.ipynb
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# uv
+.uv/
+uv.lock
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Linux
+*~
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.out
+*.err
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Hydra outputs (for chiflow)
+outputs/
+multirun/
+.hydra/
+
+# Plots and figures (optional - uncomment if you don't want to track)
+# plots/
+# figures/
+# *.png
+# *.jpg
+# *.jpeg
+# *.pdf
+# *.svg
+
+# Compiled documentation
+docs/_build/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# pytest
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Research specific - uncomment as needed
+# Intermediate processing files
+# processed_data/
+# preprocessed/
+# cache/
+
+# Large datasets
+# *.tar.gz
+# *.zip
+# *.7z
+
+# Backup files
+*.bak
+*.orig
+*.backup
