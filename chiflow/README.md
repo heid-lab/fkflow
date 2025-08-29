@@ -50,7 +50,7 @@ Not yet supported. Currently only works with the preprocessed files as they are 
 
 Run training with a specific experiment configuration:
 ```bash
-uv run python flow_train.py +experiment=flow3 test=false
+uv run python flow_train.py test=false
 ```
 
 Available model sizes:
@@ -64,23 +64,23 @@ To reproduce the main results from the paper, run these specific configurations:
 
 #### 1. Flow3 with Median Sampling (Baseline)
 ```bash
-uv run python flow_train.py +experiment=flow3 \
+uv run python flow_train.py \
   model.num_steps=50 \
   model.num_samples=50 \
-  model.inference_sampling_method=median \
+  +model.inference_sampling_method=median \
   train=false test=true \
   ckpt_path=path/to/trained/model.ckpt
 ```
 
 #### 2. Flow3 with FK Steering (Main Method)
 ```bash
-uv run python flow_train.py +experiment=flow3 \
+uv run python flow_train.py  \
   model.num_steps=50 \
   model.num_samples=50 \
-  model.inference_sampling_method=fk_steering \
-  model.steering_base_variance=0.3 \
-  model.fk_steering_temperature=0.4 \
-  model.resample_freq=10 \
+  +model.inference_sampling_method=fk_steering \
+  +model.steering_base_variance=0.3 \
+  +model.fk_steering_temperature=0.4 \
+  +model.resample_freq=10 \
   train=false test=true \
   ckpt_path=path/to/trained/model.ckpt
 ```

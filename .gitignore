@@ -55,7 +55,7 @@ trained_models/*.pth
 */trained_models/*.pth
 !**/trained_models/.gitkeep
 
-# Data files (except small test files)
+# General data files
 *.npz
 *.npy
 *.hdf5
@@ -66,6 +66,7 @@ data/
 !chiflow/configs/data/
 !data/small_test_data/
 !chiflow/gotennet/data/
+!chiflow/data/RDB7/
 *.xyz
 !test*.xyz
 
