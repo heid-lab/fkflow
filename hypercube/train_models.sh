@@ -15,7 +15,7 @@ mkdir -p trained_models
 
 # Training parameters
 DIMENSIONS="3-15"
-BASE_EPOCHS=4000 # Scaled by dim, so in dim d will train for d*BASE_EPOCHS
+BASE_EPOCHS=1000 # Scaled by dim, so in dim d will train for d*BASE_EPOCHS
 BATCH_SIZE=1024
 LEARNING_RATE=0.01
 SIGMA=2.0
