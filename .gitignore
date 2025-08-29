@@ -63,6 +63,7 @@ trained_models/*.pth
 data/
 */data/
 !*/data/.gitkeep
+!chiflow/configs/data/
 !data/small_test_data/
 *.xyz
 !test*.xyz
