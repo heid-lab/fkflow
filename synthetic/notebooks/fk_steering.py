@@ -2,19 +2,12 @@
 Feynman-Kac Steering for Flow Models
 
 This module implements FK steering for synthetic 2D distribution experiments,
-extracted and adapted from the main FlowModule._fk_generate method to work
-with the guided flow notebook interface.
+adapted to work with the guided flow notebook interface.
 
 Key Features:
 - Pure deterministic flow (no SDE terms, unlike hypercube implementation)
 - Multiple resampling strategies (multinomial, stratified, systematic, residual)
-- Event-based potential scheduling (sum, harmonic_sum, difference)
 - Compatible with synthetic notebook experiment framework
-- Gradient-based potential steering option
-
-The implementation adapts FK steering to work with 2D synthetic distributions
-in the guided flow experiments, providing a bridge between the FK steering
-theory and the existing guided flow experimental framework.
 
 Usage:
     # Create FK wrapper for a trained model
