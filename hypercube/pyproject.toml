@@ -3,7 +3,7 @@ name = "fk-hypercube"
 version = "1.0.0"
 description = "FK Steering Hypercube Benchmark"
 authors = [
-    {name = "Authors", email = "authors@example.com"},
+    {name = "Konstantin Mark", email = "konstantin.mark@tuwien.ac.at"},
 ]
 dependencies = [
     "torch",
