@@ -65,6 +65,7 @@ data/
 !*/data/.gitkeep
 !chiflow/configs/data/
 !data/small_test_data/
+!chiflow/gotennet/data/
 *.xyz
 !test*.xyz
 
