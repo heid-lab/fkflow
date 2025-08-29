@@ -279,9 +279,6 @@ class FlowModule(pl.LightningModule):
         return rmsd_loss(atom_N_3, dx_dt_N_3)
 
     def training_step(self, batch: Data, batch_idx: int) -> Tensor:
-        # Store batch size for potential debugging
-        self.batch_size_tracker[self.current_epoch] = batch.num_nodes
-
         loss = self.train_val_step(batch)
         self.log(
             "train/loss",
@@ -702,18 +699,6 @@ class FlowModule(pl.LightningModule):
             # -------------------------- END: Aggregate the S samples --------------------------
             data.pos_gen = pos_best_T_Nm_3
             self.results_R.append(data.to("cpu"))
-
-    def on_train_epoch_end(self):
-        """Log QMC usage statistics."""
-        self.log(
-            "train/qmc_samples_used",
-            self.current_epoch_samples,
-            on_step=False,
-            on_epoch=True,
-        )
-        self.log(
-            "train/qmc_total_used", self.samples_used, on_step=False, on_epoch=True
-        )
 
     def align_and_rotate_samples(self, data, pos_gen_traj_S_T_Nm_3):
         """
