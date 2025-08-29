@@ -26,15 +26,10 @@ Flow Matching with Feynman-Kac Steering for generating chemical reaction transit
 
 3. **Create environment and install dependencies**:
    ```bash
-   uv sync
+   uv sync -n
+   uv add torch_scatter torch_sparse torch_cluster torch_spline_conv torch_geometric -f https://data.pyg.org/whl/torch-2.6.0+cu124.html --no-build-isolation -n
    ```
 
-4. **Activate the environment**:
-   ```bash
-   source .venv/bin/activate  # On Unix/macOS
-   # or
-   .venv\Scripts\activate  # On Windows
-   ```
 
 ## Dataset and Preprocessing
 
@@ -47,27 +42,7 @@ Ensure you have the raw RDB7 data files:
 
 ### Preprocessing Steps
 
-Follow these steps to set up the dataset for the first time:
-
-1. **Extract reaction core indices**:
-   ```bash
-   bash preprocess_extract_rxn_core.sh
-   ```
-   This generates indices required for creating dataset splits.
-
-2. **Create dataset splits**:
-   ```bash
-   bash preprocess_create_splits.sh
-   ```
-   This produces `.pkl` files containing the split indices.
-
-3. **Preprocess the data**:
-   ```bash
-   bash preprocessing.sh
-   ```
-   This generates the final `data.pkl` file. Adjust paths to `.csv` and `.xyz` files inside the script as needed.
-
-The processed data will be stored as [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/) objects in `data/RDB7/processed_data/data.pkl`.
+Not yet supported. Currently only works with the preprocessed files as they are in the Repository.
 
 ## Usage
 
@@ -75,7 +50,7 @@ The processed data will be stored as [PyTorch Geometric](https://pytorch-geometr
 
 Run training with a specific experiment configuration:
 ```bash
-uv run python flow_train.py +experiment=flow3
+uv run python flow_train.py +experiment=flow3 test=false
 ```
 
 Available model sizes:
@@ -120,7 +95,7 @@ The main configuration is in `configs/train.yaml`. Key settings:
 - **Training/Testing**: Set `train: true` and `test: true` to both train and test
 
 In `configs/model/flow.yaml`:
-- Set `n_atom_rdkit_feats`: 27 for rdb7
+- Set `n_atom_rdkit_feats`: 24 for rdb7
 
 ### FK Steering Parameters
 
