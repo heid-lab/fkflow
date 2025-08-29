@@ -109,7 +109,7 @@ def evaluate_persistent_chirality_correctness(pos_N_3, batch: Data, threshold: f
     Parameters:
         pos_N_3 (torch.Tensor): Atomic positions (N, 3) - should be TS positions (i=1)
         batch (Data): Batch data containing chiral center indices and R/S tags
-        threshold (float): Tolerance threshold - volumes closer to 0 than this are considered wrong
+        threshold (float): Tolerance threshold - volumes further than 0 are considered wrong
     
     Returns:
         Dict[str, float]: Dictionary with persistent chirality error percentage
