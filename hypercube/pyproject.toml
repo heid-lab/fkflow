@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fk-hypercube"
+version = "1.0.0"
+description = "FK Steering Hypercube Benchmark"
+authors = [
+    {name = "Authors", email = "authors@example.com"},
+]
+dependencies = [
+    "torch",
+    "torchcfm",
+    "numpy",
+    "pandas",
+    "tqdm",
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+hypercube-train = "train:main"
+hypercube-inference = "inference:main"
+hypercube-benchmark = "benchmark:main"
+
+[tool.uv]
+dev-dependencies = [
+    "jupyter",
+    "matplotlib",
+    "seaborn",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jupyter",
+    "matplotlib", 
+    "seaborn",
+]
