@@ -87,7 +87,7 @@ See [`chiflow/README.md`](chiflow/README.md) for detailed documentation.
 
 ## Quick Start
 
-We recommend starting with the **hypercube benchmark** as it provides the most complete and reproducible implementation:
+We recommend starting with the **hypercube benchmark** as it is the most simple to run:
 
 ```bash
 cd hypercube/
@@ -129,7 +129,6 @@ Feynman-Kac Flow Matching extends standard flow matching by incorporating potent
 - Python 3.8+ (Python 3.11 recommended for synthetic experiments)
 - [uv](https://docs.astral.sh/uv/) package manager
 - CUDA-capable GPU recommended for training (particularly for ChiFlow)
-- 16GB+ RAM for chemical experiments
 - conda (for synthetic experiments only)
 
 ### Key Dependencies
