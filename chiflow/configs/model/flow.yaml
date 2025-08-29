@@ -20,7 +20,7 @@ output:
 representation:
   _target_: gotennet.models.representation.gotennet.GotenNet
   n_atom_basis: 128
-  n_atom_rdkit_feats: 27
+  n_atom_rdkit_feats: 24
   n_interactions: 3
   n_rbf: 20
   cutoff_fn:
