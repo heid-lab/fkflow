@@ -42,7 +42,12 @@ Ensure you have the raw RDB7 data files:
 
 ### Preprocessing Steps
 
-Not yet supported. Currently only works with the preprocessed files as they are in the Repository.
+```bash
+uv add rdkit pandas
+bash preprocess_extract_rxn_core.sh    # Extract reaction cores
+bash preprocess_create_splits.sh       # Create dataset splits  
+bash preprocessing.sh                   # Process RDB7 data
+```
 
 ## Usage
 
@@ -69,7 +74,8 @@ uv run python flow_train.py \
   model.num_samples=50 \
   +model.inference_sampling_method=median \
   train=false test=true \
-  ckpt_path=path/to/trained/model.ckpt
+  ckpt_path=path/to/trained/model.ckpt \
+  custom_model_weight_path=path/to/trained/model.ckpt
 ```
 
 #### 2. Flow3 with FK Steering (Main Method)
@@ -82,7 +88,8 @@ uv run python flow_train.py  \
   +model.fk_steering_temperature=0.4 \
   +model.resample_freq=10 \
   train=false test=true \
-  ckpt_path=path/to/trained/model.ckpt
+  ckpt_path=path/to/trained/model.ckpt \
+  custom_model_weight_path=path/to/trained/model.ckpt
 ```
 
 ### Configuration Details
