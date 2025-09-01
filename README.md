@@ -67,6 +67,7 @@ Flow matching with FK steering for generating chemical reaction transition state
 ```bash
 cd chiflow/
 uv sync
+uv add rdkit pandas
 bash preprocess_extract_rxn_core.sh    # Extract reaction cores
 bash preprocess_create_splits.sh       # Create dataset splits  
 bash preprocessing.sh                   # Process RDB7 data
@@ -76,12 +77,18 @@ uv run python flow_train.py +experiment=flow3  # Train model
 **Paper Reproduction:**
 ```bash
 # FK Steering (main method)
-uv run python flow_train.py +experiment=flow3 \
-  model.inference_sampling_method=fk_steering \
-  model.steering_base_variance=0.3 \
-  model.fk_steering_temperature=0.4 \
-  train=false test=true ckpt_path=path/to/model.ckpt
+uv run python flow_train.py  \
+  model.num_steps=50 \
+  model.num_samples=50 \
+  +model.inference_sampling_method=fk_steering \
+  +model.steering_base_variance=0.3 \
+  +model.fk_steering_temperature=0.4 \
+  +model.resample_freq=10 \
+  train=false test=true \
+  ckpt_path=path/to/trained/model.ckpt \
+  custom_model_weight_path=path/to/trained/model.ckpt
 ```
+where `path/to/trained/model.ckpt` is a trained CFM model.
 
 See [`chiflow/README.md`](chiflow/README.md) for detailed documentation.
 
