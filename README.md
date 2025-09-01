@@ -157,7 +157,7 @@ This code accompanies the paper:
 
 ## License
 
-[License information to be added]
+This work is published under an MIT license.
 
 ## Acknowledgments
 
