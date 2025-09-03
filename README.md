@@ -146,10 +146,17 @@ Feynman-Kac Flow Matching extends standard flow matching by incorporating potent
 
 ## Publication
 
-This code accompanies the paper:
+This code accompanies the paper [Feynman-Kac-Flow: Inference Steering of Conditional Flow Matching to an
+ Energy-Tilted Posterior](http://arxiv.org/abs/2509.01543)
 
 ```bibtex
-[Citation details to be added]
+@article{mark2025feynman,
+  title={Feynman-Kac-Flow: Inference Steering of Conditional Flow Matching to an
+ Energy-Tilted Posterior},
+  author={Mark, Konstantin and Galustian, Leonard and Kovar, Maximilian P.-P. and Heid, Esther},
+  journal={arXiv preprint arXiv:2509.01543},
+  year={2025}
+}
 ```
 
 
