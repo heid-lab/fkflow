@@ -15,7 +15,8 @@ from torch_geometric.data import Data
 
 # from flow_matching.flow_module import FlowModule
 from flow_matching.utils import (
-    rmsd_loss,
+    compute_rmsd_new,
+    compute_rmsd_old,
     compute_steric_clash_penalty,
     pred_atom_index_align,
     calc_DMAE,
@@ -195,6 +196,7 @@ def evaluate_geometry(
     data: Data,
     r_threshold: float = 1.2,
     epsilon: float = 1.0,
+    compute_pymatgen_heuristic_rmsd: bool = True,
 ) -> Dict[str, float]:
     """
     Evaluate the geometric quality of generated molecular conformations.
@@ -211,21 +213,23 @@ def evaluate_geometry(
     Returns:
         Dict[str, float]: Dictionary containing geometric evaluation metrics:
             - mae: Mean absolute error of distances
-            - rmse: Root mean square error of atomic positions
+            - rmse: Pymatgen RMSE of atomic positions after matcher alignment
+            - rmse_with_flip: Mirrored variant of the pymatgen RMSE
             - angle_error: Bond angle error in degrees
             - dihedral_error: Dihedral angle error in degrees  
             - steric_clash: Steric clash penalty difference
             - Plus chirality correctness metrics
     """
     rtsp_i = 1
-    # RMSE error
+    rmse_old = compute_rmsd_old(data, rtsp_i)
+    rmse_with_flip, rmse = compute_rmsd_new(
+        data, rtsp_i, same_order=not compute_pymatgen_heuristic_rmsd
+    )
+
     pred_pos_N_3, gt_pos_N_3 = pred_atom_index_align(
         data.smiles, data.pos[:, rtsp_i, :], data.pos_gen[-1]
     )
-    rmse = rmsd_loss(pred_pos_N_3, gt_pos_N_3)
-    # rmse_median = rmsd_median_loss(pred_pos_N_3, gt_pos_N_3)
-    # rmse_raw = rmsd_loss(data.pos_gen[-1], data.pos[:, rtsp_i, :])
-    # MAE error
+
     pred_pos_aligned_mae = pred_atom_index_align_mad(
         data.smiles, data.pos[:, rtsp_i, :], data.pos_gen[-1]
     )
@@ -278,7 +282,9 @@ def evaluate_geometry(
 
     result = {
         "mae": round(float(mae), 4),
-        "rmse": round(rmse.item(), 4),
+        "rmse_old": round(float(rmse_old), 4),
+        "rmse": round(float(rmse), 4),
+        "rmse_with_flip": round(float(rmse_with_flip), 4),
         "angle_error": round(bond_angle_error.item(), 4),
         "dihedral_error": round(dihedral_angle_error.item(), 4),
         "steric_clash": round(steric_clash_diff, 4),
@@ -295,10 +301,16 @@ def evaluate_geometry(
 
 
 class TestAndSaveResultsAfterTrainingCallback(L.Callback):
-    def __init__(self, save_path, runs_stats_path=None):  # , mr_stats_path=None):
+    def __init__(
+        self,
+        save_path,
+        runs_stats_path=None,
+        compute_pymatgen_heuristic_rmsd: bool = True,
+    ):  # , mr_stats_path=None):
         self.save_path = Path(save_path)
         # self.mr_stats_path = None if mr_stats_path is None else Path(mr_stats_path)
         self.runs_stats_path = Path(runs_stats_path)
+        self.compute_pymatgen_heuristic_rmsd = bool(compute_pymatgen_heuristic_rmsd)
         self._test_start_time = None
 
     def save_test_predictions(self, module):
@@ -332,7 +344,13 @@ class TestAndSaveResultsAfterTrainingCallback(L.Callback):
         )
         self._test_start_time = None
 
-        pd_results_R = [evaluate_geometry(data) for data in module.results_R]
+        pd_results_R = [
+            evaluate_geometry(
+                data,
+                compute_pymatgen_heuristic_rmsd=self.compute_pymatgen_heuristic_rmsd,
+            )
+            for data in module.results_R
+        ]
         pd_results_df = pd.DataFrame(pd_results_R)
         pd_results_df.to_csv(
             self.save_path / "test_results.csv", index=False, float_format="%.3f"

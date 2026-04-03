@@ -1,6 +1,15 @@
-import torch
-from torch import Tensor
+import math
 import numpy as np
+import torch
+import warnings
+from pymatgen.analysis.molecule_matcher import (
+    BruteForceOrderMatcher,
+    GeneticOrderMatcher,
+    HungarianOrderMatcher,
+    KabschMatcher,
+)
+from pymatgen.core import Molecule
+from torch import Tensor
 
 from ase.calculators.lj import LennardJones
 from ase.calculators.emt import EMT
@@ -14,9 +23,52 @@ from torch_geometric.data import Data
 from scipy.spatial.distance import cdist
 
 from rdkit.Chem import AllChem
-from scipy.spatial.distance import cdist
 
 from einops import repeat
+
+
+def rmsd_core(mol1, mol2, threshold=0.5, same_order=True):
+    _, count = np.unique(mol1.atomic_numbers, return_counts=True)
+    if same_order:
+        bfm = KabschMatcher(mol1)
+        _, rmsd = bfm.fit(mol2)
+        return rmsd
+    total_permutations = 1
+    for c in count:
+        total_permutations *= math.factorial(int(c))
+    if total_permutations < 1e4:
+        bfm = BruteForceOrderMatcher(mol1)
+        _, rmsd = bfm.fit(mol2)
+    else:
+        bfm = GeneticOrderMatcher(mol1, threshold=threshold)
+        pairs = bfm.fit(mol2)
+        rmsd = threshold
+        for pair in pairs:
+            rmsd = min(rmsd, pair[-1])
+        if not len(pairs):
+            bfm = HungarianOrderMatcher(mol1)
+            _, rmsd = bfm.fit(mol2)
+    return rmsd
+
+
+def pymatgen_rmsd(
+    mol1,
+    mol2,
+    ignore_chirality: bool = False,
+    threshold: float = 0.5,
+    same_order: bool = True,
+):
+    rmsd = rmsd_core(mol1, mol2, threshold, same_order=same_order)
+    if ignore_chirality:
+        coords = mol2.cart_coords.copy()
+        coords[:, -1] = -coords[:, -1]
+        mol2_reflect = Molecule(
+            species=mol2.species,
+            coords=coords,
+        )
+        rmsd_reflect = rmsd_core(mol1, mol2_reflect, threshold, same_order=same_order)
+        rmsd = min(rmsd, rmsd_reflect)
+    return rmsd
 
 
 def calculate_pot_energy(mol: Atoms):
@@ -414,6 +466,60 @@ def pred_atom_index_align_mad(smiles, gt_atom_pos, pred_atom_pos) -> Tensor:
     # match = get_min_dmae_match(matches, gt_atom_pos, pred_atom_pos)
     match = get_min_dmae_match(matches, gt_atom_pos, pred_atom_pos)
     return pred_atom_pos[match]
+
+
+def compute_rmsd_old(data, rtsp_i=1) -> float:
+    pred_pos_N_3, gt_pos_N_3 = pred_atom_index_align(
+        data.smiles, data.pos[:, rtsp_i, :], data.pos_gen[-1]
+    )
+    return float(rmsd_loss(pred_pos_N_3, gt_pos_N_3).item())
+
+
+def compute_rmsd_pymatgen(data, rtsp_i=1, same_order: bool = True):
+    try:
+        mol_pred = Molecule(
+            species=data.atom_type.long().cpu().numpy(),
+            coords=data.pos_gen[-1].cpu().numpy(),
+        )
+        mol_ref = Molecule(
+            species=data.atom_type.long().cpu().numpy(),
+            coords=data.pos[:, rtsp_i, :].cpu().numpy(),
+        )
+
+        rmsd_without_flip = rmsd_core(
+            mol_pred, mol_ref, threshold=0.5, same_order=same_order
+        )
+
+        coords_reflect = mol_pred.cart_coords.copy()
+        coords_reflect[:, -1] = -coords_reflect[:, -1]
+        mol_pred_reflect = Molecule(
+            species=mol_pred.species,
+            coords=coords_reflect,
+        )
+        rmsd_reflect = rmsd_core(
+            mol_pred_reflect, mol_ref, threshold=0.5, same_order=same_order
+        )
+        rmsd_with_flip = min(rmsd_without_flip, rmsd_reflect)
+    except Exception as e:
+        warnings.warn(
+            f"Pymatgen RMSD failed: {e}. Falling back to RDKit alignment."
+        )
+        pred_pos_N_3, gt_pos_N_3 = pred_atom_index_align(
+            data.smiles, data.pos[:, rtsp_i, :], data.pos_gen[-1]
+        )
+        rmsd_without_flip = rmsd_loss(pred_pos_N_3, gt_pos_N_3)
+        rmsd_with_flip = rmsd_without_flip
+
+    return float(rmsd_with_flip), float(rmsd_without_flip)
+
+
+def compute_rmsd_new(
+    data,
+    rtsp_i=1,
+    *,
+    same_order: bool = True,
+) -> tuple[float, float]:
+    return compute_rmsd_pymatgen(data, rtsp_i=rtsp_i, same_order=same_order)
 
 
 def get_min_dmae_match_torch(matches_M_N, pos_gt_N_3, pos_pred_S_N_3, mape=False):
