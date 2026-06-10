@@ -3,6 +3,7 @@
 import time
 import math
 import pickle
+import traceback
 from pathlib import Path
 from typing import Any, Dict, Optional
 import pandas as pd
@@ -23,6 +24,7 @@ from flow_matching.utils import (
     pred_atom_index_align_mad,
 )
 from flow_matching.chirality_metrics import (
+    evaluate_chirality_number,
     evaluate_chirality_correctness,
     evaluate_persistent_chirality_correctness,
 )
@@ -105,6 +107,7 @@ def extract_dihedrals_from_connectivity(connectivity: dict) -> torch.Tensor:
         torch.Tensor: Tensor of shape (num_dihedrals, 4) with each row being (i, j, k, l).
     """
     dihedrals = []
+    seen = set()
     for j, neighbors_j in connectivity.items():
         for k in neighbors_j:
             # For bond (j, k), iterate over neighbors of j and k, excluding the counterpart.
@@ -116,6 +119,12 @@ def extract_dihedrals_from_connectivity(connectivity: dict) -> torch.Tensor:
                 for l in neighbors_k:
                     if l == j:
                         continue
+                    dihedral = (i, j, k, l)
+                    reverse = (l, k, j, i)
+                    key = dihedral if dihedral <= reverse else reverse
+                    if key in seen:
+                        continue
+                    seen.add(key)
                     dihedrals.append([i, j, k, l])
     if dihedrals:
         return torch.tensor(dihedrals, dtype=torch.long)
@@ -218,7 +227,11 @@ def evaluate_geometry(
             - angle_error: Bond angle error in degrees
             - dihedral_error: Dihedral angle error in degrees  
             - steric_clash: Steric clash penalty difference
-            - Plus chirality correctness metrics
+            - has_chiral: Whether the reaction has annotated chiral centers
+            - chirality_gt: Threshold chirality error on ground-truth TS geometry
+            - persistent_chirality_gt: Persistent chirality error on ground-truth TS geometry
+            - chirality: Threshold chirality error on generated TS geometry
+            - persistent_chirality: Persistent chirality error on generated TS geometry
     """
     rtsp_i = 1
     rmse_old = compute_rmsd_old(data, rtsp_i)
@@ -272,12 +285,14 @@ def evaluate_geometry(
     gt_pot = calculate_pot_energy(gt_mol)
     pot_diff = pred_pot - gt_pot"""
 
-    # Chirality evaluation - use the TS positions (ground truth)
-    chirality_metrics = evaluate_chirality_correctness(data.pos[:, rtsp_i, :], data)
-
-    # Persistent chirality evaluation - only for chiral centers that stay the same
-    persistent_chirality_metrics = evaluate_persistent_chirality_correctness(
+    has_chiral = evaluate_chirality_number(data.pos[:, rtsp_i, :], data)
+    chirality_baseline = evaluate_chirality_correctness(data.pos[:, rtsp_i, :], data)
+    persistent_chirality_baseline = evaluate_persistent_chirality_correctness(
         data.pos[:, rtsp_i, :], data
+    )
+    chirality_metrics = evaluate_chirality_correctness(pred_pos_N_3, data)
+    persistent_chirality_metrics = evaluate_persistent_chirality_correctness(
+        pred_pos_N_3, data
     )
 
     result = {
@@ -288,11 +303,12 @@ def evaluate_geometry(
         "angle_error": round(bond_angle_error.item(), 4),
         "dihedral_error": round(dihedral_angle_error.item(), 4),
         "steric_clash": round(steric_clash_diff, 4),
+        "has_chiral": round(has_chiral, 4),
+        "chirality_gt": round(chirality_baseline, 4),
+        "persistent_chirality_gt": round(persistent_chirality_baseline, 4),
+        "chirality": round(chirality_metrics, 4),
+        "persistent_chirality": round(persistent_chirality_metrics, 4),
     }
-
-    # Add chirality metrics
-    result.update(chirality_metrics)
-    result.update(persistent_chirality_metrics)
 
     return result
 
@@ -339,18 +355,40 @@ class TestAndSaveResultsAfterTrainingCallback(L.Callback):
         self._test_start_time = time.perf_counter()
 
     def on_test_end(self, trainer: Trainer, module):
+        if not module.results_R:
+            log.warning("No test predictions were collected; skipping geometry metrics.")
+            self._test_start_time = None
+            self.save_test_predictions(module)
+            return
+
         inference_time_per_rxn = (time.perf_counter() - self._test_start_time) / len(
             module.results_R
         )
         self._test_start_time = None
 
-        pd_results_R = [
-            evaluate_geometry(
-                data,
-                compute_pymatgen_heuristic_rmsd=self.compute_pymatgen_heuristic_rmsd,
-            )
-            for data in module.results_R
-        ]
+        pd_results_R = []
+        failed_results = []
+        for idx, data in enumerate(module.results_R):
+            try:
+                pd_results_R.append(
+                    evaluate_geometry(
+                        data,
+                        compute_pymatgen_heuristic_rmsd=self.compute_pymatgen_heuristic_rmsd,
+                    )
+                )
+            except Exception as e:
+                rxn_idx = getattr(data, "rxn_idx", idx)
+                failed_results.append((idx, rxn_idx, str(e)))
+                log.warning(
+                    f"Geometry evaluation failed for sample {idx} (rxn_idx={rxn_idx}): {e}"
+                )
+                log.debug(traceback.format_exc())
+
+        if not pd_results_R:
+            log.warning("No geometry metrics were saved because all samples failed.")
+            self.save_test_predictions(module)
+            return
+
         pd_results_df = pd.DataFrame(pd_results_R)
         pd_results_df.to_csv(
             self.save_path / "test_results.csv", index=False, float_format="%.3f"
@@ -358,6 +396,8 @@ class TestAndSaveResultsAfterTrainingCallback(L.Callback):
 
         means = pd_results_df.mean()
         means["time"] = inference_time_per_rxn
+        if failed_results:
+            means["num_failed_geometry_samples"] = len(failed_results)
         # stds = pd_results_df.std()
         # stds['time'] = '-'
         # stats_df = pd.DataFrame([means, stds], index=['mean', 'std'])
