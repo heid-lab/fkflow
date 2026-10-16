@@ -134,7 +134,7 @@ Each CSV contains summary statistics (mean ± std) and individual run data is sa
 The benchmark evaluates two main metrics:
 
 1. **Success Rate**: Percentage of samples reaching the target region [0,∞)^d
-2. **Wasserstein-2 Distance**: Distance to the target Gaussian distribution (lower is better)
+2. **Sliced Wasserstein-2 distance (SW₂)**: distance to the target Gaussians over 4096 random projections (lower is better). The `w2_dist` column of the CSVs holds the squared distance SW₂²; `hypercube_plots.ipynb` takes the square root per run before computing quartiles
 
 ## File Structure
 
