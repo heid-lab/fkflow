@@ -278,7 +278,7 @@ def evaluate_geometry(
     steric_clash_diff = (steric_clash_pred - steric_clash_gt).item()
     steric_clash_diff = min(steric_clash_diff, 9999)
 
-    # LJ potential (for fun)
+    # LJ potential comparison (disabled)
     """pred_mol = create_ase_molecule(data.atom_type.cpu().numpy(), pred_pos_N_3.cpu().numpy())
     gt_mol = create_ase_molecule(data.atom_type.cpu().numpy(), gt_pos_N_3.cpu().numpy())
     pred_pot = calculate_pot_energy(pred_mol)
@@ -322,15 +322,20 @@ class TestAndSaveResultsAfterTrainingCallback(L.Callback):
         save_path,
         runs_stats_path=None,
         compute_pymatgen_heuristic_rmsd: bool = True,
+        predictions_path=None,
     ):  # , mr_stats_path=None):
         self.save_path = Path(save_path)
         # self.mr_stats_path = None if mr_stats_path is None else Path(mr_stats_path)
         self.runs_stats_path = Path(runs_stats_path)
         self.compute_pymatgen_heuristic_rmsd = bool(compute_pymatgen_heuristic_rmsd)
+        self.predictions_path = (
+            None if predictions_path is None else Path(predictions_path)
+        )
         self._test_start_time = None
 
     def save_test_predictions(self, module):
-        pickle_save_path = self.save_path / "test_samples/samples_all.pkl"
+        base_path = self.predictions_path or (self.save_path / "test_samples")
+        pickle_save_path = base_path / "samples_all.pkl"
         pickle_save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(pickle_save_path, "wb") as f:
             pickle.dump(module.results_R, f)
@@ -370,12 +375,14 @@ class TestAndSaveResultsAfterTrainingCallback(L.Callback):
         failed_results = []
         for idx, data in enumerate(module.results_R):
             try:
-                pd_results_R.append(
-                    evaluate_geometry(
-                        data,
-                        compute_pymatgen_heuristic_rmsd=self.compute_pymatgen_heuristic_rmsd,
-                    )
+                row = evaluate_geometry(
+                    data,
+                    compute_pymatgen_heuristic_rmsd=self.compute_pymatgen_heuristic_rmsd,
                 )
+                for diag_key in ("ess_mean", "ess_min", "ancestors_final"):
+                    if hasattr(data, diag_key):
+                        row[diag_key] = round(float(getattr(data, diag_key)), 4)
+                pd_results_R.append(row)
             except Exception as e:
                 rxn_idx = getattr(data, "rxn_idx", idx)
                 failed_results.append((idx, rxn_idx, str(e)))

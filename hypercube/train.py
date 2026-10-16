@@ -10,9 +10,7 @@ from core import train_sb_models, get_device, set_random_seed
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Train FK steering models for hypercube benchmark"
-    )
+    parser = argparse.ArgumentParser(description="Train FK steering models for hypercube benchmark")
 
     parser.add_argument(
         "--dimensions",
@@ -26,9 +24,7 @@ def main():
         default=4000,
         help="Base number of epochs (will be multiplied by dimension)",
     )
-    parser.add_argument(
-        "--batch_size", type=int, default=256, help="Training batch size"
-    )
+    parser.add_argument("--batch_size", type=int, default=256, help="Training batch size")
     parser.add_argument("--lr", type=float, default=0.01, help="Learning rate")
     parser.add_argument(
         "--sigma", type=float, default=0.5, help="Noise level for Schrödinger Bridge"
@@ -39,9 +35,7 @@ def main():
         default="auto",
         help="Device to use ('cuda', 'mps', 'cpu', or 'auto')",
     )
-    parser.add_argument(
-        "--no_save", action="store_true", help="Don't save trained models"
-    )
+    parser.add_argument("--no_save", action="store_true", help="Don't save trained models")
     parser.add_argument(
         "--seed", type=int, default=None, help="Random seed for reproducible training"
     )

@@ -12,14 +12,71 @@ dependencies = [
     "matplotlib>=3.10.1",
     "numpy>=2.2.5",
     "pandas>=2.2.3",
-    "pymatgen>=2025.10.7",
+    "pymatgen==2025.10.7",
     "rdkit>=2024.9.6",
     "rich==14.0.0",
     "rootutils>=1.0.7",
     "setuptools>=80.3.1",
-    "torch==2.6.0",
-    "torchaudio>=2.6.0",
+    "torch==2.8.0",
+    "torch-geometric==2.7.0",
+    "torchaudio==2.8.0",
     "torchdiffeq>=0.2.5",
-    "torchvision>=0.21.0",
+    "torchvision==0.23.0",
     "wandb>=0.19.10",
 ]
+
+# torch-scatter/sparse/cluster/spline-conv are compiled against a specific
+# torch build and are not on PyPI. They come from the PyG flat index, which is
+# published per (torch version, accelerator). Pick one group:
+#
+#   uv sync                                   CUDA 12.8  (Linux/Windows x86_64)
+#   uv sync --no-default-groups --group cpu   CPU
+#
+# Add --group aimnet to either for the AIMNet2 potential (needs torch>=2.8).
+#
+[dependency-groups]
+cu128 = [
+    "torch-cluster>=1.6.3",
+    "torch-scatter>=2.1.2",
+    "torch-sparse>=0.6.18",
+    "torch-spline-conv>=1.2.2",
+]
+cpu = [
+    "torch-cluster>=1.6.3",
+    "torch-scatter>=2.1.2",
+    "torch-sparse>=0.6.18",
+    "torch-spline-conv>=1.2.2",
+]
+aimnet = [
+    "aimnet[hf]==0.2.0",
+    "sella==2.6.0",
+]
+
+[tool.uv]
+default-groups = ["cu128"]
+conflicts = [[{ group = "cu128" }, { group = "cpu" }]]
+
+[tool.uv.sources]
+torch-cluster     = [{ index = "pyg-cu128", group = "cu128" }, { index = "pyg-cpu", group = "cpu" }]
+torch-scatter     = [{ index = "pyg-cu128", group = "cu128" }, { index = "pyg-cpu", group = "cpu" }]
+torch-sparse      = [{ index = "pyg-cu128", group = "cu128" }, { index = "pyg-cpu", group = "cpu" }]
+torch-spline-conv = [{ index = "pyg-cu128", group = "cu128" }, { index = "pyg-cpu", group = "cpu" }]
+
+[[tool.uv.index]]
+name = "pyg-cu128"
+url = "https://data.pyg.org/whl/torch-2.8.0+cu128.html"
+format = "flat"
+explicit = true
+
+[[tool.uv.index]]
+name = "pyg-cpu"
+url = "https://data.pyg.org/whl/torch-2.8.0+cpu.html"
+format = "flat"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["gotennet", "data_processing"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]

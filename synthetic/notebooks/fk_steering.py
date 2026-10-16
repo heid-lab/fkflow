@@ -60,8 +60,8 @@ def stratified_resample(weights: torch.Tensor, num_samples: int) -> torch.Tensor
     B, S = weights_B_S.shape
     probs_B_S = weights_B_S / (weights_B_S.sum(dim=1, keepdim=True) + 1e-12)
     cdf_B_S = torch.cumsum(probs_B_S, dim=1)
-    # positions: (B, num_samples) stratified in [0,1]
-    # u_b ~ U[0,1/S], then positions = (u_b + k)/num_samples
+    # positions: (B, num_samples) in [0,1], u_b + k/num_samples with one offset
+    # u_b ~ U[0, 1/num_samples] per row: the same scheme as systematic_resample below
     u_B_1 = torch.rand(B, 1, device=weights_B_S.device) / num_samples
     positions_B_Sr = u_B_1 + (torch.arange(num_samples, device=weights_B_S.device).float().unsqueeze(0) / num_samples)
     # searchsorted per row

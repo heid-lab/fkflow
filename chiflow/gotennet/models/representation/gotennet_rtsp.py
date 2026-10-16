@@ -408,7 +408,7 @@ class EQFF(nn.Module):
         for l in self.gamma_m:
             l.reset_parameters()
 
-    # naming is ridiculously bad
+    # naming follows the GotenNet paper:
     # s: h in paper (node scalar features): [nodes, n_atom_basis]
     # v: X^(l) in paper (node higher-order features): [nodes, (l+1)**2, n_atom_basis]
     def forward(self, s, v):

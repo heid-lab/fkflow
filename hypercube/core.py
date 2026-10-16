@@ -34,15 +34,10 @@ def get_device(device="auto"):
     return device
 
 
-def sample_uniform_hypercube(
-    n_samples, dim, cube_range=(-1, 1), device="cpu", generator=None
-):
+def sample_uniform_hypercube(n_samples, dim, cube_range=(-1, 1), device="cpu", generator=None):
     """Sample uniformly from [-r, r]^d hypercube"""
     low, high = cube_range
-    return (
-        torch.rand(n_samples, dim, device=device, generator=generator) * (high - low)
-        + low
-    )
+    return torch.rand(n_samples, dim, device=device, generator=generator) * (high - low) + low
 
 
 def sample_corner_gaussians(
@@ -66,16 +61,16 @@ def sample_corner_gaussians(
 def indicator_potential(x, dim, threshold=0.0, log_weight=None):
     """
     Indicator potential function for steering toward target region [threshold, ∞)^d.
-    
+
     Returns 0 for samples in the target region and log_weight for samples outside.
     This creates a sharp preference for the target region.
-    
+
     Args:
         x: Input samples of shape (N, D)
         dim: Problem dimension (for computing default log_weight)
         threshold: Target region boundary (default: 0.0)
         log_weight: Log potential for samples outside target (default: log(2^dim - 1))
-        
+
     Returns:
         torch.Tensor: Potential values of shape (N,)
     """
@@ -90,17 +85,17 @@ def indicator_potential(x, dim, threshold=0.0, log_weight=None):
 def distance_potential(x, dim, threshold=0.0, weight_scale=1.0, exponent=1.0):
     """
     Distance-based potential function for steering toward target region [threshold, ∞)^d.
-    
+
     Returns potential proportional to distance from the target region, raised to
     a given exponent. This creates a smooth gradient toward the target region.
-    
+
     Args:
         x: Input samples of shape (N, D)
         dim: Problem dimension (unused, kept for API consistency)
         threshold: Target region boundary (default: 0.0)
         weight_scale: Scaling factor for the potential (default: 1.0)
         exponent: Power to raise distances to (1.0=linear, 2.0=quadratic, etc.)
-        
+
     Returns:
         torch.Tensor: Potential values of shape (N,)
     """
@@ -133,18 +128,12 @@ def sample_corner_gaussians_biased(
     corner_centers = torch.tensor(corners, device=device, dtype=torch.float32)
 
     positive_corner = torch.full((dim,), high, device=device, dtype=torch.float32)
-    pos_idx = torch.argmin(
-        torch.sum(torch.abs(corner_centers - positive_corner), dim=1)
-    ).item()
+    pos_idx = torch.argmin(torch.sum(torch.abs(corner_centers - positive_corner), dim=1)).item()
 
-    weights = torch.full(
-        (n_corners,), (1.0 - positive_prob) / (n_corners - 1), device=device
-    )
+    weights = torch.full((n_corners,), (1.0 - positive_prob) / (n_corners - 1), device=device)
     weights[pos_idx] = positive_prob
 
-    idx = torch.multinomial(
-        weights, num_samples=n_samples, replacement=True, generator=generator
-    )
+    idx = torch.multinomial(weights, num_samples=n_samples, replacement=True, generator=generator)
     centers = corner_centers[idx]
 
     noise = torch.randn(n_samples, dim, device=device, generator=generator) * std
@@ -184,7 +173,12 @@ def wasserstein_2_to_target(
     seed: Optional[int] = 3,
     squared: bool = False,
 ) -> float:
-    """Approximate 2-Wasserstein distance to target region Gaussians using sliced Wasserstein"""
+    """Sliced Wasserstein-2 distance (SW2) to samples of the target region Gaussian.
+
+    Averages the squared 1-D W2 distance over n_projections random directions and
+    returns SW2^2 if squared=True, else SW2. benchmark.py and inference.py store
+    SW2^2 (squared=True); hypercube_plots.ipynb takes the square root per run.
+    """
     if samples.ndim != 2:
         raise ValueError("samples must be of shape (N, D)")
     N, D = samples.shape
@@ -225,7 +219,10 @@ def stratified_multinomial(
     num_samples: int,
     generator: Optional[torch.Generator] = None,
 ) -> torch.Tensor:
-    """Stratified resampling with same interface as torch.multinomial"""
+    """Systematic resampling with the same interface as torch.multinomial.
+
+    One uniform offset per row, shared by the num_samples evenly spaced positions.
+    """
     if num_samples < 0:
         raise ValueError("num_samples must be non-negative")
 
@@ -238,9 +235,7 @@ def stratified_multinomial(
 
     row_sums = flat.sum(dim=-1)
     if (row_sums <= 0).any():
-        raise RuntimeError(
-            "invalid multinomial distribution (sum of probabilities <= 0)"
-        )
+        raise RuntimeError("invalid multinomial distribution (sum of probabilities <= 0)")
 
     probs = flat / row_sums.clamp_min(1e-20).unsqueeze(-1)
     cdf = probs.cumsum(dim=-1).clamp(max=1.0)
@@ -252,9 +247,7 @@ def stratified_multinomial(
         return out.reshape(*input.shape[:-1], 0)
 
     u0 = torch.rand(B, 1, dtype=torch.float32, device=device, generator=generator)
-    u = (
-        torch.arange(num_samples, device=device, dtype=torch.float32) + u0
-    ) / num_samples
+    u = (torch.arange(num_samples, device=device, dtype=torch.float32) + u0) / num_samples
 
     idx = torch.searchsorted(cdf, u, right=False).to(dtype=torch.long)
 
@@ -264,11 +257,11 @@ def stratified_multinomial(
 class FKSteeringSDE:
     """
     Feynman-Kac steering for Stochastic Differential Equations.
-    
+
     This class implements FK steering to guide samples from an initial distribution
     toward regions with low potential energy. It uses a particle filter approach
     with resampling based on potential-weighted importance weights.
-    
+
     Args:
         flow_model: Neural network that predicts the velocity field v_t(x,t)
         score_model: Neural network that predicts the score function ∇log p_t(x)
@@ -313,14 +306,14 @@ class FKSteeringSDE:
     ):
         """
         Generate samples using FK steering.
-        
+
         Args:
             x0_sampler: Function that samples initial conditions x0_sampler(batch_size, device)
             num_steps: Number of SDE integration steps
             batch_size: Total batch size (must be divisible by num_samples)
             device: Device to run on (auto-detected if None)
             progress_callback: Optional callback function called at each step
-            
+
         Returns:
             torch.Tensor: Final samples of shape (batch_size, dim)
         """
@@ -335,9 +328,7 @@ class FKSteeringSDE:
 
         dt = 1.0 / (K - 1)
 
-        pos_current_S_B_D = torch.stack(
-            [x0_sampler(B, device=device) for _ in range(S)], dim=0
-        )
+        pos_current_S_B_D = torch.stack([x0_sampler(B, device=device) for _ in range(S)], dim=0)
 
         with torch.no_grad():
             t0_B_1 = torch.zeros(B, 1, device=device)
@@ -354,13 +345,8 @@ class FKSteeringSDE:
 
         prev_U_S_B = None
 
-        if (
-            self.fk_potential_scheduler == "harmonic_sum"
-            and self.resample_freq is not None
-        ):
-            H_L = torch.sum(
-                1.0 / torch.arange(1, L + 1, device=device, dtype=torch.float32)
-            )
+        if self.fk_potential_scheduler == "harmonic_sum" and self.resample_freq is not None:
+            H_L = torch.sum(1.0 / torch.arange(1, L + 1, device=device, dtype=torch.float32))
         else:
             H_L = None
         ell = 0
@@ -396,17 +382,15 @@ class FKSteeringSDE:
                     tnext_B_1 = torch.full((B, 1), t_next, device=device)
                     drift_S_B_D = torch.stack(
                         [
-                            self.flow_model(
-                                torch.cat([pos_new_S_B_D[s], tnext_B_1], dim=1)
-                            )
+                            self.flow_model(torch.cat([pos_new_S_B_D[s], tnext_B_1], dim=1))
                             for s in range(S)
                         ],
                         dim=0,
                     )
 
-            if (
-                self.resample_freq is not None and (k + 1) % self.resample_freq == 0
-            ) or (k == K - 2 and self.resample_freq is not None):
+            if (self.resample_freq is not None and (k + 1) % self.resample_freq == 0) or (
+                k == K - 2 and self.resample_freq is not None
+            ):
                 if k != K - 2:
                     pos_one_shot_S_B_D = pos_new_S_B_D + (1.0 - t_next) * drift_S_B_D
                     U_S_B = torch.stack(
@@ -424,9 +408,8 @@ class FKSteeringSDE:
                             -self.fk_steering_temperature * U_S_B - log_weights_cum_S_B
                         )
                     else:
-                        log_weights_S_B = (
-                            log_weights_S_B
-                            - self.fk_steering_temperature * U_S_B * (t - t_steering)
+                        log_weights_S_B = log_weights_S_B - self.fk_steering_temperature * U_S_B * (
+                            t - t_steering
                         )
 
                     log_weights_cum_S_B += log_weights_S_B
@@ -438,10 +421,8 @@ class FKSteeringSDE:
                         )
                     else:
                         if H_L is not None:
-                            log_weights_S_B = (
-                                log_weights_S_B
-                                - self.fk_steering_temperature
-                                * (U_S_B / ((L - ell) * H_L))
+                            log_weights_S_B = log_weights_S_B - self.fk_steering_temperature * (
+                                U_S_B / ((L - ell) * H_L)
                             )
                     log_weights_cum_S_B += log_weights_S_B
 
@@ -449,18 +430,14 @@ class FKSteeringSDE:
                     if prev_U_S_B is None:
                         log_weights_S_B = -self.fk_steering_temperature * U_S_B
                     else:
-                        log_weights_S_B = self.fk_steering_temperature * (
-                            prev_U_S_B - U_S_B
-                        )
+                        log_weights_S_B = self.fk_steering_temperature * (prev_U_S_B - U_S_B)
 
                     prev_U_S_B = U_S_B
                 t_steering = t
                 ell += 1
 
                 with torch.no_grad():
-                    stable = (
-                        log_weights_S_B - log_weights_S_B.max(dim=0, keepdim=True)[0]
-                    )
+                    stable = log_weights_S_B - log_weights_S_B.max(dim=0, keepdim=True)[0]
                     G_S_B = torch.exp(stable)
                     G_S_B = G_S_B / (G_S_B.sum(dim=0, keepdim=True) + 1e-12)
                     indices_B_S = stratified_multinomial(
@@ -479,12 +456,8 @@ class FKSteeringSDE:
                     index=gather_idx_S_B_1.expand(-1, -1, drift_S_B_D.size(-1)),
                 )
 
-                log_weights_S_B = torch.gather(
-                    log_weights_S_B, dim=0, index=indices_B_S.T
-                )
-                log_weights_cum_S_B = torch.gather(
-                    log_weights_cum_S_B, dim=0, index=indices_B_S.T
-                )
+                log_weights_S_B = torch.gather(log_weights_S_B, dim=0, index=indices_B_S.T)
+                log_weights_cum_S_B = torch.gather(log_weights_cum_S_B, dim=0, index=indices_B_S.T)
 
             pos_current_S_B_D = pos_new_S_B_D
 
@@ -502,11 +475,11 @@ def train_sb_models(
 ):
     """
     Train Schrödinger Bridge flow and score models for given dimension.
-    
+
     Trains both a velocity field model v_t(x,t) and score model ∇log p_t(x,t)
     using the Schrödinger Bridge objective. The initial distribution is uniform
     hypercube and target distribution is corner Gaussians.
-    
+
     Args:
         dim: Dimension of the problem
         num_epochs: Number of training epochs
@@ -515,7 +488,7 @@ def train_sb_models(
         sigma: Noise level for Schrödinger Bridge
         save_models: Whether to save trained models to disk
         device: Device to train on ("auto", "cuda", "mps", "cpu")
-        
+
     Returns:
         tuple: (flow_model, score_model) trained models
     """
@@ -526,9 +499,7 @@ def train_sb_models(
 
     model = MLP(dim=dim, time_varying=True, w=128).to(device)
     score_model = MLP(dim=dim, time_varying=True, w=128).to(device)
-    optimizer = torch.optim.Adam(
-        list(model.parameters()) + list(score_model.parameters()), lr
-    )
+    optimizer = torch.optim.Adam(list(model.parameters()) + list(score_model.parameters()), lr)
     FM = SchrodingerBridgeConditionalFlowMatcher(sigma=sigma)
 
     model.train()
@@ -540,9 +511,7 @@ def train_sb_models(
         x0 = sample_uniform_hypercube(batch_size, dim, device=device)
         x1 = sample_corner_gaussians(batch_size, dim, device=device)
 
-        t, xt, ut, eps = FM.sample_location_and_conditional_flow(
-            x0, x1, return_noise=True
-        )
+        t, xt, ut, eps = FM.sample_location_and_conditional_flow(x0, x1, return_noise=True)
         lambda_t = FM.compute_lambda(t)
 
         vt = model(torch.cat([xt, t[:, None]], dim=-1))
@@ -579,15 +548,15 @@ def train_sb_models(
 def load_sb_models(dim, sigma=1.0, device="auto"):
     """
     Load pre-trained Schrödinger Bridge models for given dimension.
-    
+
     Args:
         dim: Dimension to load models for
         sigma: Noise level (for compatibility, not currently used in loading)
         device: Device to load models on ("auto", "cuda", "mps", "cpu")
-        
+
     Returns:
         tuple: (flow_model, score_model) loaded in eval mode
-        
+
     Raises:
         FileNotFoundError: If no trained model exists for the given dimension
     """
@@ -598,9 +567,7 @@ def load_sb_models(dim, sigma=1.0, device="auto"):
     model_path = f"trained_models/sb_models_dim{dim}.pt"
 
     if not os.path.exists(model_path):
-        raise FileNotFoundError(
-            f"No trained models found for dimension {dim} at {model_path}"
-        )
+        raise FileNotFoundError(f"No trained models found for dimension {dim} at {model_path}")
 
     model = MLP(dim=dim, time_varying=True, w=128).to(device)
     score_model = MLP(dim=dim, time_varying=True, w=128).to(device)

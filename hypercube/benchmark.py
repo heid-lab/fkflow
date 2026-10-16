@@ -25,16 +25,16 @@ from core import (
 def benchmark_particles_for_dimension(dim, particle_counts, args, device):
     """
     Benchmark different particle counts for FK steering on a single dimension.
-    
+
     Tests how FK steering performance varies with the number of particles
     in the particle filter, keeping all other parameters fixed.
-    
+
     Args:
         dim: Problem dimension to benchmark
         particle_counts: List of particle counts to test
         args: Parsed arguments containing experiment parameters
         device: Device to run benchmarks on
-        
+
     Returns:
         list: List of result dictionaries, one per particle count tested
     """
@@ -112,9 +112,7 @@ def benchmark_particles_for_dimension(dim, particle_counts, args, device):
                         progress_callback=progress_callback,
                     )
 
-                success_rate = compute_success_rate(
-                    fk_samples, threshold=args.threshold
-                )
+                success_rate = compute_success_rate(fk_samples, threshold=args.threshold)
                 w2_dist = wasserstein_2_to_target(
                     fk_samples,
                     threshold=args.threshold,
@@ -151,9 +149,7 @@ def main():
     )
 
     # Dimension settings
-    parser.add_argument(
-        "--dimension", type=int, required=True, help="Dimension to benchmark"
-    )
+    parser.add_argument("--dimension", type=int, required=True, help="Dimension to benchmark")
     parser.add_argument(
         "--particles",
         type=str,
@@ -176,13 +172,9 @@ def main():
     )
 
     # FK steering parameters
-    parser.add_argument(
-        "--temperature", type=float, default=1.0, help="FK steering temperature"
-    )
+    parser.add_argument("--temperature", type=float, default=1.0, help="FK steering temperature")
     parser.add_argument("--sigma", type=float, default=2.0, help="SDE noise level")
-    parser.add_argument(
-        "--resample_freq", type=int, default=10, help="Resampling frequency"
-    )
+    parser.add_argument("--resample_freq", type=int, default=10, help="Resampling frequency")
     parser.add_argument(
         "--scheduler",
         type=str,
@@ -192,9 +184,7 @@ def main():
     )
 
     # Task parameters
-    parser.add_argument(
-        "--threshold", type=float, default=0.0, help="Target region threshold"
-    )
+    parser.add_argument("--threshold", type=float, default=0.0, help="Target region threshold")
 
     # Potential function parameters
     parser.add_argument(
@@ -247,9 +237,7 @@ def main():
         default="auto",
         help="Device to use ('cuda', 'mps', 'cpu', or 'auto')",
     )
-    parser.add_argument(
-        "--seed", type=int, default=None, help="Random seed for reproducibility"
-    )
+    parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
 
     args = parser.parse_args()
 
@@ -275,9 +263,7 @@ def main():
     print()
 
     # Run benchmark
-    results = benchmark_particles_for_dimension(
-        args.dimension, particle_counts, args, device
-    )
+    results = benchmark_particles_for_dimension(args.dimension, particle_counts, args, device)
 
     if not results:
         print("No results obtained. Check that trained models exist.")
@@ -354,7 +340,7 @@ def main():
         w2 = row["mean_w2_dist"]
         w2_std = row["std_w2_dist"]
         print(
-            f"  {particles:4d} particles: {success:5.1f}% ± {success_std:4.1f}% | W2: {w2:.4f} ± {w2_std:.4f}"
+            f"  {particles:4d} particles: {success:5.1f}% ± {success_std:4.1f}% | SW2^2: {w2:.4f} ± {w2_std:.4f}"
         )
 
 

@@ -1,0 +1,12 @@
+# @package model
+# AIMNet2-rxn force potential plus the chirality potential, summed.
+# The force is the mean over the ensemble members; uncertainty_weight adds the
+# RMS spread of the members' forces (model.fk_potential_fns.1.uncertainty_weight=1.0).
+fk_potential_fns:
+  - _target_: flow_matching.utils.compute_chiral_volume
+    _partial_: true
+  - _target_: flow_matching.aimnet_potential.AIMNetForcePotential
+    transform: log1p
+    weight: 1.0
+    ensemble_members: [0, 1, 2, 3]
+    uncertainty_weight: 0.0

@@ -1,0 +1,8 @@
+# @package model
+# g-xTB force potential alone: U = weight * transform(RMS force).
+# Needs the g-xTB build of xtb 6.7.1 (GXTB_BIN or xtb on the PATH);
+# one CPU per parallel calculation.
+fk_potential_fns:
+  - _target_: flow_matching.gxtb_potential.GXTBForcePotential
+    transform: log1p
+    weight: 1.0

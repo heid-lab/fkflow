@@ -1,0 +1,5 @@
+# @package model
+# The chirality potential alone (the FlowModule default, spelled out).
+fk_potential_fns:
+  - _target_: flow_matching.utils.compute_chiral_volume
+    _partial_: true

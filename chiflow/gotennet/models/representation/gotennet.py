@@ -407,7 +407,7 @@ class EQFF(nn.Module):
         for l in self.gamma_m:
             l.reset_parameters()
 
-    # naming is ridiculously bad
+    # naming follows the GotenNet paper:
     # s: h in paper (node scalar features): [nodes, n_atom_basis]
     # v: X^(l) in paper (node higher-order features): [nodes, (l+1)**2, n_atom_basis]
     def forward(self, s, v):
@@ -518,10 +518,10 @@ class GotenNet(nn.Module):
         self.neighbor_embedding = NodeInit([self.hidden_dim // 2, self.hidden_dim], n_atom_rdkit_feats, n_rbf,
                                            self.cutoff, max_z=max_z,
                                            weight_init=weight_init, bias_init=bias_init, concat=False,
-                                           proj_ln='layer', activation=activation).jittable()
+                                           proj_ln='layer', activation=activation)
         self.edge_embedding = EdgeInit(n_rbf, [self.hidden_dim // 2, self.hidden_dim], weight_init=weight_init,
                                        bias_init=bias_init,
-                                       proj_ln='').jittable()
+                                       proj_ln='')
 
         self.time_embedding = TimestepEmbedding(128, 128, self.hidden_dim)
 
@@ -544,7 +544,7 @@ class GotenNet(nn.Module):
                 scale_edge=scale_edge, edge_ln=edge_ln,
                 evec_dim=evec_dim, emlp_dim=emlp_dim,
                 sep_vecj=sep_int_vec, lmax=lmax
-            ).jittable() for i in range(self.n_interactions)
+            ) for i in range(self.n_interactions)
         ])
 
         self.eqff = nn.ModuleList([

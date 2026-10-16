@@ -14,7 +14,7 @@ defaults:
   - _self_
 
   - experiment: flow3
-  
+
   - hparams_search: null
 
   # optional local config for machine/user specific settings
@@ -39,7 +39,7 @@ train: True
 # evaluate on test set, using best model weights achieved during training
 # lightning chooses best weights based on the metric specified in checkpoint callback
 test: True
-custom_model_weight_path: logs/eval/runs/2025-04-08_14-23-27/checkpoints/epoch_347.ckpt #flow1.ckpt
+custom_model_weight_path: null  # checkpoint to test when training saved none, e.g. artifacts/paper/flow3/checkpoints/flow3-paper.ckpt
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
@@ -50,14 +50,14 @@ model:
   seed: ${seed}
   filter_clash: False
   # fit&eval using r/ts/p -> 0/1/2
-  pos_fit_idx: 0
+  pos_fit_idx: 1
   lambda_cf: 1
-  
+
 data:
   split_file: random_split.pkl
-
 
 #name: "goflow_data"
 #task: "RDB7"
 #label: -1
 #label_str: -1
+

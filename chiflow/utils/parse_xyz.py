@@ -5,7 +5,7 @@ def parse_xyz(filename):
     """Parse xyz file and return a list of atoms and their coordinates."""
     atoms = []
     coords = []
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         for line in f:
             if line.strip().isdigit():
                 continue
@@ -38,7 +38,7 @@ def parse_xyz_corpus(filename):
     Return a list of xyz-blocks.
     Each xyz-block contains a molecule.
     """
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         lines = f.readlines()
     # First line is the number of atoms
     # Second line is the comment line
@@ -48,14 +48,14 @@ def parse_xyz_corpus(filename):
     i = 0
     while i < len(lines):
         n_atoms = int(lines[i])
-        xyz_block = lines[i: i + n_atoms + 2]
+        xyz_block = lines[i : i + n_atoms + 2]
         xyzs.append("".join(xyz_block).strip())
         i += n_atoms + 2
     return xyzs
 
 
-if __name__ == '__main__':
-    xyzs = parse_xyz_corpus('wb97xd3_ts.xyz')
+if __name__ == "__main__":
+    xyzs = parse_xyz_corpus("wb97xd3_ts.xyz")
     print(len(xyzs))
     print("------------------")
     print(xyzs[0])

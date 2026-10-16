@@ -32,3 +32,6 @@ dev = [
     "matplotlib", 
     "seaborn",
 ]
+
+[tool.ruff]
+line-length = 100

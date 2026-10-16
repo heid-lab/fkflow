@@ -1,15 +1,19 @@
-from typing import Any, Dict, List, Optional, Tuple
-import pickle
-import torch
-import lightning as L
-from lightning import LightningDataModule, Trainer, Callback
-from lightning.pytorch.loggers import Logger
-import hydra
-from omegaconf import DictConfig
-import wandb
-from flow_matching.flow_module import FlowModule
+from typing import List
 
-from gotennet.utils import RankedLogger, instantiate_callbacks, instantiate_loggers, log_hyperparameters
+import hydra
+import lightning as L
+import torch
+from lightning import Callback, LightningDataModule, Trainer
+from lightning.pytorch.loggers import Logger
+from omegaconf import DictConfig
+
+from flow_matching.flow_module import FlowModule
+from gotennet.utils import (
+    RankedLogger,
+    instantiate_callbacks,
+    instantiate_loggers,
+    log_hyperparameters,
+)
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
@@ -18,18 +22,19 @@ log = RankedLogger(__name__, rank_zero_only=True)
 def train_flow(cfg: DictConfig):
     """
     Main training function for ChiFlow models.
-    
+
     This function orchestrates the training and testing of flow matching models
     with Feynman-Kac steering for chemical reaction transition state generation.
     It handles model initialization, data loading, training, and evaluation.
-    
+
     Args:
         cfg (DictConfig): Hydra configuration object containing all training parameters,
                          model architecture, data paths, and experimental settings.
     """
     #################### PyTorch Specifics ####################
     torch.set_float32_matmul_precision(cfg.get("matmul_precision", "high"))
-    if cfg.get("seed"): L.seed_everything(cfg.seed, workers=True)
+    if cfg.get("seed"):
+        L.seed_everything(cfg.seed, workers=True)
 
     #################### Load Modules for Data/Model/Callback/Logging ####################
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
@@ -75,5 +80,5 @@ def train_flow(cfg: DictConfig):
         log.info(f"Best ckpt path: {ckpt_path}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     train_flow()

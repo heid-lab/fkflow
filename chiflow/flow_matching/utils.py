@@ -1,7 +1,10 @@
 import math
+import warnings
+
 import numpy as np
 import torch
-import warnings
+from ase import Atoms
+from ase.calculators.lj import LennardJones
 from pymatgen.analysis.molecule_matcher import (
     BruteForceOrderMatcher,
     GeneticOrderMatcher,
@@ -9,22 +12,10 @@ from pymatgen.analysis.molecule_matcher import (
     KabschMatcher,
 )
 from pymatgen.core import Molecule
-from torch import Tensor
-
-from ase.calculators.lj import LennardJones
-from ase.calculators.emt import EMT
-from ase import Atoms
-
 from rdkit import Chem
-from rdkit.Chem import rdDetermineBonds
-from rdkit.Geometry import Point3D
-from torch_geometric.data import Data
-
 from scipy.spatial.distance import cdist
-
-from rdkit.Chem import AllChem
-
-from einops import repeat
+from torch import Tensor
+from torch_geometric.data import Data
 
 
 def rmsd_core(mol1, mol2, threshold=0.5, same_order=True):
@@ -87,8 +78,8 @@ def compute_steric_clash_penalty(
         V(r) = epsilon * [(r_threshold / r)^{12} - 1]    for r < r_threshold
         V(r) = 0                                          for r >= r_threshold
 
-    The default r_threshold of 1.2 Å is chosen based on the observation that the
-    shortest possible bond (C-C triple bond) is around this length.
+    The default r_threshold of 0.7 Å is far below any bond length, so only
+    unphysically close atom pairs are penalized.
 
     Parameters:
         coords_N_3 (torch.Tensor): Tensor of shape (N,3) with 3D positions.
@@ -160,9 +151,7 @@ def compute_steric_clash_batched(
         # Compute penalties for clashes
         penalty_K = torch.zeros_like(dists_K)
         if clash_mask.any():
-            penalty_K[clash_mask] = epsilon * (
-                (r_threshold / dists_K[clash_mask]) ** 12 - 1
-            )
+            penalty_K[clash_mask] = epsilon * ((r_threshold / dists_K[clash_mask]) ** 12 - 1)
 
         # Sum penalties for this molecule
         penalties_Nm[j] = penalty_K.sum()
@@ -199,9 +188,7 @@ def compute_steric_clash_batched_fast(
     mol_mask = batch_idx.unsqueeze(-1) == batch_idx.unsqueeze(0)
 
     # Apply upper triangular mask to avoid double counting and self-interactions
-    triu_mask = torch.triu(
-        torch.ones(N, N, dtype=torch.bool, device=device), diagonal=1
-    )
+    triu_mask = torch.triu(torch.ones(N, N, dtype=torch.bool, device=device), diagonal=1)
 
     # Combined mask: only consider pairs of different atoms in the same molecule
     combined_mask = mol_mask & triu_mask
@@ -269,7 +256,9 @@ def compute_chiral_volume(pos_N_3, batch: Data, device, pt=False):
             :, 0, :
         ].unsqueeze(1)
         cross_product_C_3 = torch.cross(
-            tetrahedral_sides_C_3_3[:, 0, :], tetrahedral_sides_C_3_3[:, 1, :]
+            tetrahedral_sides_C_3_3[:, 0, :],
+            tetrahedral_sides_C_3_3[:, 1, :],
+            dim=-1,
         )
         scalar_triple_products_C = torch.sum(
             tetrahedral_sides_C_3_3[:, 2, :] * cross_product_C_3, dim=1
@@ -295,7 +284,8 @@ def compute_chiral_volume(pos_N_3, batch: Data, device, pt=False):
 def create_ase_molecule(atomic_numbers: np.ndarray, positions: np.ndarray):
     if positions.shape[0] != len(atomic_numbers):
         raise ValueError(
-            f"Number of positions ({positions.shape[0]}) does not match the number of atoms ({len(atomic_numbers)})."
+            f"Number of positions ({positions.shape[0]}) does not match "
+            f"the number of atoms ({len(atomic_numbers)})."
         )
 
     return Atoms(numbers=atomic_numbers, positions=positions)
@@ -362,15 +352,17 @@ def get_shortest_path_batched_x_1(x_0_N_3, x_1_N_3, batch):
 
 def get_shortest_path_x_1(x_0_N_3, x_1_N_3):
     """
-    Find the rotation matrix R such that the distance of the (Nx3) matrix of ground truth(GT) atomic positions x_1_N_3 rotated with R
+    Find the rotation matrix R such that the distance of the (Nx3) matrix of ground truth (GT)
+    atomic positions x_1_N_3 rotated with R
     to the random atomic positions x_0_N_3 is minimized. More formally:
 
     R_opt = argmin_R(dist(x_0_N_3, x_1_N_3 @ R.T))
     x_1_opt_N_3 = x_1_N_3 @ R_opt.T
     return x_1_opt_N_3
 
-    This is used so the model learns to flow (diffuse) towards the GT atomic positions, but with the shortest distance.
-    Useful because it could flow towards any rotated version of the GT, which are all valid. But we want a unique, shortest path.
+    This is used so the model learns to flow (diffuse) towards the GT atomic positions, but
+    with the shortest distance. Useful because it could flow towards any rotated version of
+    the GT, which are all valid. But we want a unique, shortest path.
     """
     # Center the points
     x0_center = x_0_N_3.mean(dim=0, keepdim=True)
@@ -429,17 +421,13 @@ def get_substruct_matches(smarts):
     mol_r = Chem.MolFromSmarts(smarts_r)
     mol_p = Chem.MolFromSmarts(smarts_p)
 
-    matches_r = list(
-        mol_r.GetSubstructMatches(mol_r, uniquify=False, useChirality=True)
-    )
+    matches_r = list(mol_r.GetSubstructMatches(mol_r, uniquify=False, useChirality=True))
     map_r = np.array([atom.GetAtomMapNum() for atom in mol_r.GetAtoms()]) - 1
     map_r_inv = np.argsort(map_r)
     for i in range(len(matches_r)):
         matches_r[i] = tuple(map_r[np.array(matches_r[i])[map_r_inv]])
 
-    matches_p = list(
-        mol_p.GetSubstructMatches(mol_p, uniquify=False, useChirality=True)
-    )
+    matches_p = list(mol_p.GetSubstructMatches(mol_p, uniquify=False, useChirality=True))
     map_p = np.array([atom.GetAtomMapNum() for atom in mol_p.GetAtoms()]) - 1
     map_p_inv = np.argsort(map_p)
     for i in range(len(matches_p)):
@@ -486,9 +474,7 @@ def compute_rmsd_pymatgen(data, rtsp_i=1, same_order: bool = True):
             coords=data.pos[:, rtsp_i, :].cpu().numpy(),
         )
 
-        rmsd_without_flip = rmsd_core(
-            mol_pred, mol_ref, threshold=0.5, same_order=same_order
-        )
+        rmsd_without_flip = rmsd_core(mol_pred, mol_ref, threshold=0.5, same_order=same_order)
 
         coords_reflect = mol_pred.cart_coords.copy()
         coords_reflect[:, -1] = -coords_reflect[:, -1]
@@ -496,14 +482,10 @@ def compute_rmsd_pymatgen(data, rtsp_i=1, same_order: bool = True):
             species=mol_pred.species,
             coords=coords_reflect,
         )
-        rmsd_reflect = rmsd_core(
-            mol_pred_reflect, mol_ref, threshold=0.5, same_order=same_order
-        )
+        rmsd_reflect = rmsd_core(mol_pred_reflect, mol_ref, threshold=0.5, same_order=same_order)
         rmsd_with_flip = min(rmsd_without_flip, rmsd_reflect)
     except Exception as e:
-        warnings.warn(
-            f"Pymatgen RMSD failed: {e}. Falling back to RDKit alignment."
-        )
+        warnings.warn(f"Pymatgen RMSD failed: {e}. Falling back to RDKit alignment.", stacklevel=2)
         pred_pos_N_3, gt_pos_N_3 = pred_atom_index_align(
             data.smiles, data.pos[:, rtsp_i, :], data.pos_gen[-1]
         )
@@ -543,9 +525,7 @@ def get_min_dmae_match_torch(matches_M_N, pos_gt_N_3, pos_pred_S_N_3, mape=False
         for that sample.
     """
     # Ensure matches_M_N is a tensor on the same device as pos_pred_S_N_3.
-    matches_M_N = torch.tensor(
-        matches_M_N, dtype=torch.long, device=pos_pred_S_N_3.device
-    )
+    matches_M_N = torch.tensor(matches_M_N, dtype=torch.long, device=pos_pred_S_N_3.device)
 
     # Candidate predicted positions indexing:
     # For each sample (S) and each candidate match (M), select positions for N atoms.
@@ -557,15 +537,11 @@ def get_min_dmae_match_torch(matches_M_N, pos_gt_N_3, pos_pred_S_N_3, mape=False
     candidate_pred_pos_SM_N_3 = candidate_pred_pos_S_M_N_3.reshape(S * M, N, 3)
 
     # Compute pairwise distance matrices for each candidate match.
-    d_matches_SM_N_N = torch.cdist(
-        candidate_pred_pos_SM_N_3, candidate_pred_pos_SM_N_3, p=2
-    )
+    d_matches_SM_N_N = torch.cdist(candidate_pred_pos_SM_N_3, candidate_pred_pos_SM_N_3, p=2)
     d_matches_S_M_N_N = d_matches_SM_N_N.reshape(S, M, N, N)
 
     # Compute the reference distance matrix from pos_gt_N_3
-    d_ref_N_N = torch.cdist(
-        pos_gt_N_3.unsqueeze(0), pos_gt_N_3.unsqueeze(0), p=2
-    ).squeeze(0)
+    d_ref_N_N = torch.cdist(pos_gt_N_3.unsqueeze(0), pos_gt_N_3.unsqueeze(0), p=2).squeeze(0)
     d_ref_1_1_N_N = d_ref_N_N.unsqueeze(0).unsqueeze(0)
 
     # Compute the error difference.
@@ -579,9 +555,7 @@ def get_min_dmae_match_torch(matches_M_N, pos_gt_N_3, pos_pred_S_N_3, mape=False
 
     # Calculate DMAE for each candidate match in each sample.
     # Normalization factor: (N*(N-1)/2) with a factor of 2 gives division by (N*(N-1))
-    dmaes_S_M = (
-        2 * diff_upper_S_M_N_N.sum(dim=(-1, -2)) / (N * (N - 1))
-    )  # Shape: (S, M)
+    dmaes_S_M = 2 * diff_upper_S_M_N_N.sum(dim=(-1, -2)) / (N * (N - 1))  # Shape: (S, M)
 
     # For each sample, identify the candidate match with the smallest DMAE.
     best_idx_S = torch.argmin(dmaes_S_M, dim=1)  # Shape: (S,)
@@ -592,8 +566,5 @@ def get_min_dmae_match_torch(matches_M_N, pos_gt_N_3, pos_pred_S_N_3, mape=False
     return best_matches_S_N
 
 
-# Define potential functions:
+# The default FK potential of FlowModule:
 chiral_potential = compute_chiral_volume
-steric_potential = lambda pos, batch, device: compute_steric_clash_batched_fast(
-    pos, batch, power=2
-)

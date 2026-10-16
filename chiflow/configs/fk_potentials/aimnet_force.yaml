@@ -1,0 +1,13 @@
+# @package model
+# AIMNet2-rxn force potential alone: U = weight * transform(RMS force).
+# The force is the mean over the ensemble members; uncertainty_weight adds the
+# RMS spread of the members' forces (model.fk_potential_fns.0.uncertainty_weight=1.0).
+# Select with  +fk_potentials=aimnet_force  and change its values with e.g.
+#   model.fk_potential_fns.0.transform=rms  model.fk_potential_fns.0.weight=2.0
+# Needs the optional dependency group:  uv sync --group aimnet
+fk_potential_fns:
+  - _target_: flow_matching.aimnet_potential.AIMNetForcePotential
+    transform: log1p
+    weight: 1.0
+    ensemble_members: [0, 1, 2, 3]
+    uncertainty_weight: 0.0

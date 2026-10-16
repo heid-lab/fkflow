@@ -70,6 +70,12 @@ data/
 *.xyz
 !test*.xyz
 
+# processed pkl files.
+chiflow/data/RDB7/processed_data
+chiflow/data/RDB7/splits/
+chiflow/data/RDB7/pmf/
+chiflow/artifacts
+
 # Jupyter Notebook
 .ipynb_checkpoints/
 *.ipynb_checkpoints/
@@ -84,7 +90,6 @@ ENV/
 
 # uv
 .uv/
-uv.lock
 
 # IDEs
 .vscode/
@@ -172,3 +177,6 @@ dmypy.json
 *.bak
 *.orig
 *.backup
+
+# per-reaction stereocentre counts used by the paper scripts
+!chiflow/scripts/paper/stereo_counts.csv

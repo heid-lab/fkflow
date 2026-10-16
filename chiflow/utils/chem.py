@@ -3,19 +3,20 @@
 # TSDiff is distributed under the same MIT license as the original code.
 # Please see the accompanying LICENSE file for further details.
 from copy import deepcopy
-import torch
-from torchvision.transforms.functional import to_tensor
+from typing import List, Tuple
+
 import rdkit
 import rdkit.Chem.Draw
+import torch
 from rdkit import Chem
-from rdkit.Chem import rdDepictor as DP
 from rdkit.Chem import PeriodicTable as PT
+from rdkit.Chem import rdDepictor as DP
 from rdkit.Chem import rdMolAlign as MA
-from rdkit.Chem.rdchem import BondType as BT
-from rdkit.Chem.rdchem import Mol, GetPeriodicTable
 from rdkit.Chem.Draw import rdMolDraw2D as MD2
+from rdkit.Chem.rdchem import BondType as BT
+from rdkit.Chem.rdchem import GetPeriodicTable, Mol
 from rdkit.Chem.rdmolops import RemoveHs
-from typing import List, Tuple
+from torchvision.transforms.functional import to_tensor
 
 BOND_TYPES = {t: i for i, t in enumerate(BT.names.values())}
 BOND_NAMES = {i: t for i, t in enumerate(BT.names.keys())}
@@ -24,11 +25,11 @@ BOND_NAMES = {i: t for i, t in enumerate(BT.names.keys())}
 def set_conformer_positions(conf, pos):
     """
     Set atom positions in an RDKit conformer object.
-    
+
     Args:
         conf (Conformer): RDKit conformer object
         pos (array-like): Atom positions with shape (N_atoms, 3)
-        
+
     Returns:
         Conformer: Updated conformer object
     """
@@ -40,12 +41,12 @@ def set_conformer_positions(conf, pos):
 def draw_mol_image(rdkit_mol, tensor=False):
     """
     Draw a molecular structure as an image.
-    
+
     Args:
         rdkit_mol (Mol): RDKit molecule object
-        tensor (bool): If True, return as PyTorch tensor; if False, return as PIL Image. 
+        tensor (bool): If True, return as PyTorch tensor; if False, return as PIL Image.
                       Defaults to False.
-                      
+
     Returns:
         PIL.Image or torch.Tensor: Molecular structure image
     """
@@ -106,10 +107,10 @@ def mol_to_smiles_without_Hs(mol: Mol) -> str:
 def remove_duplicate_mols(molecules: List[Mol]) -> List[Mol]:
     """
     Remove duplicate molecules from a list based on SMILES string comparison.
-    
+
     Args:
         molecules (List[Mol]): List of RDKit molecule objects
-        
+
     Returns:
         List[Mol]: List of unique molecules with duplicates removed
     """

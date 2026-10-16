@@ -1,0 +1,10 @@
+# @package model
+# g-xTB force potential plus the chirality potential, summed.
+# Needs the g-xTB build of xtb 6.7.1 (GXTB_BIN or xtb on the PATH);
+# one CPU per parallel calculation.
+fk_potential_fns:
+  - _target_: flow_matching.utils.compute_chiral_volume
+    _partial_: true
+  - _target_: flow_matching.gxtb_potential.GXTBForcePotential
+    transform: log1p
+    weight: 1.0

@@ -25,12 +25,10 @@ from core import (
 )
 
 
-def run_single_inference(
-    fk_steerer, dim, args, device, run_id, progress_bar=None, generator=None
-):
+def run_single_inference(fk_steerer, dim, args, device, run_id, progress_bar=None, generator=None):
     """
     Run a single inference run with FK steering.
-    
+
     Args:
         fk_steerer: FKSteeringSDE instance
         dim: Problem dimension
@@ -39,7 +37,7 @@ def run_single_inference(
         run_id: Run identifier (for logging)
         progress_bar: Optional progress bar to update
         generator: Random number generator for reproducibility
-        
+
     Returns:
         tuple: (success_rate, w2_distance) performance metrics
     """
@@ -73,22 +71,22 @@ def run_single_inference(
 def run_inference_for_dimension(dim, args, device):
     """
     Run inference for a single dimension with parallel runs.
-    
+
     Loads pre-trained models, sets up FK steering, and runs multiple
     independent inference runs in parallel for statistical analysis.
-    
+
     Args:
         dim: Problem dimension
         args: Parsed arguments containing experiment parameters
         device: Device to run inference on
-        
+
     Returns:
         tuple: (result_dict, error_message) where result_dict contains
                mean/std statistics and individual run results, or None if error
     """
     try:
         flow_model, score_model = load_sb_models(dim, device=device)
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return None, f"No trained model for dimension {dim}"
 
     # Create potential function based on type
@@ -166,7 +164,7 @@ def run_inference_for_dimension(dim, args, device):
 
     # Print result on the same line as the completed progress bar
     tqdm.write(
-        f"Dim {dim:2d}: {success_rates.mean():5.1f}% ± {success_rates.std():4.1f}% | W2: {w2_dists.mean():.4f} ± {w2_dists.std():.4f}"
+        f"Dim {dim:2d}: {success_rates.mean():5.1f}% ± {success_rates.std():4.1f}% | SW2^2: {w2_dists.mean():.4f} ± {w2_dists.std():.4f}"
     )
 
     result = {
@@ -210,9 +208,7 @@ def main():
     )
 
     # FK steering parameters
-    parser.add_argument(
-        "--temperature", type=float, default=1.0, help="FK steering temperature"
-    )
+    parser.add_argument("--temperature", type=float, default=1.0, help="FK steering temperature")
     parser.add_argument("--sigma", type=float, default=2.0, help="SDE noise level")
     parser.add_argument(
         "--particles",
@@ -220,9 +216,7 @@ def main():
         default=1024,
         help="Number of particles for FK steering",
     )
-    parser.add_argument(
-        "--resample_freq", type=int, default=10, help="Resampling frequency"
-    )
+    parser.add_argument("--resample_freq", type=int, default=10, help="Resampling frequency")
     parser.add_argument(
         "--scheduler",
         type=str,
@@ -232,9 +226,7 @@ def main():
     )
 
     # Task parameters
-    parser.add_argument(
-        "--threshold", type=float, default=0.0, help="Target region threshold"
-    )
+    parser.add_argument("--threshold", type=float, default=0.0, help="Target region threshold")
 
     # Potential function parameters
     parser.add_argument(
@@ -287,9 +279,7 @@ def main():
         default="auto",
         help="Device to use ('cuda', 'mps', 'cpu', or 'auto')",
     )
-    parser.add_argument(
-        "--seed", type=int, default=None, help="Random seed for reproducibility"
-    )
+    parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
 
     args = parser.parse_args()
 
@@ -307,12 +297,10 @@ def main():
     # Setup device
     device = get_device(args.device)
 
-    print(f"FK Steering Hypercube Benchmark - Inference")
+    print("FK Steering Hypercube Benchmark - Inference")
     print(f"Using device: {device}")
     print(f"Dimensions: {dimensions}")
-    print(
-        f"Parameters: temp={args.temperature}, sigma={args.sigma}, particles={args.particles}"
-    )
+    print(f"Parameters: temp={args.temperature}, sigma={args.sigma}, particles={args.particles}")
     print(
         f"Steps: {args.num_steps}, resample_freq={args.resample_freq}, scheduler={args.scheduler}"
     )
@@ -329,9 +317,7 @@ def main():
             results.append(result)
 
             # Flatten for individual run records
-            for i, (sr, w2) in enumerate(
-                zip(result["success_rates"], result["w2_dists"])
-            ):
+            for i, (sr, w2) in enumerate(zip(result["success_rates"], result["w2_dists"])):
                 all_runs_data.append(
                     {
                         "dimension": dim,
@@ -392,7 +378,7 @@ def main():
     runs_output = args.output.replace(".csv", "_runs.csv")
     runs_df.to_csv(runs_output, index=False)
 
-    print(f"Results saved to:")
+    print("Results saved to:")
     print(f"  Summary: {args.output}")
     print(f"  Individual runs: {runs_output}")
 
@@ -405,7 +391,7 @@ def main():
         w2 = row["mean_w2_dist"]
         w2_std = row["std_w2_dist"]
         print(
-            f"  Dim {dim:2d}: {success:5.1f}% ± {success_std:4.1f}% | W2: {w2:.4f} ± {w2_std:.4f}"
+            f"  Dim {dim:2d}: {success:5.1f}% ± {success_std:4.1f}% | SW2^2: {w2:.4f} ± {w2_std:.4f}"
         )
 
 

@@ -4,7 +4,6 @@ Utility functions for FK Steering Hypercube Benchmark
 """
 
 import pandas as pd
-import numpy as np
 from pathlib import Path
 
 
@@ -13,9 +12,7 @@ def load_and_summarize_results(csv_path):
     df = pd.read_csv(csv_path)
 
     print(f"Results from: {csv_path}")
-    print(
-        f"Timestamp: {df['timestamp'].iloc[0] if 'timestamp' in df.columns else 'Unknown'}"
-    )
+    print(f"Timestamp: {df['timestamp'].iloc[0] if 'timestamp' in df.columns else 'Unknown'}")
     print()
 
     if "dimension" in df.columns:
@@ -29,7 +26,7 @@ def load_and_summarize_results(csv_path):
                 if "mean_w2_dist" in row:
                     w2 = row["mean_w2_dist"]
                     w2_std = row["std_w2_dist"]
-                    print(f"          W2: {w2:.4f} ± {w2_std:.4f}")
+                    print(f"          SW2^2: {w2:.4f} ± {w2_std:.4f}")
 
     if "num_particles" in df.columns:
         print("Results by particle count:")
@@ -91,9 +88,7 @@ def generate_summary_report(csv_path, output_path=None):
             f.write("Parameters:\n")
             f.write(f"  Temperature: {params['temperature']}\n")
             f.write(f"  Sigma: {params['sigma']}\n")
-            f.write(
-                f"  Particles: {params.get('particles', params.get('num_particles', 'N/A'))}\n"
-            )
+            f.write(f"  Particles: {params.get('particles', params.get('num_particles', 'N/A'))}\n")
             f.write(f"  Steps: {params['num_steps']}\n")
             f.write(f"  Resample freq: {params['resample_freq']}\n")
             f.write(f"  Scheduler: {params['scheduler']}\n")
@@ -112,7 +107,7 @@ def generate_summary_report(csv_path, output_path=None):
                 if "mean_w2_dist" in row:
                     w2 = row["mean_w2_dist"]
                     w2_std = row["std_w2_dist"]
-                    f.write(f" | W2: {w2:.4f} ± {w2_std:.4f}")
+                    f.write(f" | SW2^2: {w2:.4f} ± {w2_std:.4f}")
                 f.write("\n")
 
         if "num_particles" in df.columns:
@@ -120,13 +115,11 @@ def generate_summary_report(csv_path, output_path=None):
                 particles = int(row["num_particles"])
                 success = row["mean_success_rate"]
                 success_std = row["std_success_rate"]
-                f.write(
-                    f"  {particles:4d} particles: {success:5.1f}% ± {success_std:4.1f}%"
-                )
+                f.write(f"  {particles:4d} particles: {success:5.1f}% ± {success_std:4.1f}%")
                 if "mean_w2_dist" in row:
                     w2 = row["mean_w2_dist"]
                     w2_std = row["std_w2_dist"]
-                    f.write(f" | W2: {w2:.4f} ± {w2_std:.4f}")
+                    f.write(f" | SW2^2: {w2:.4f} ± {w2_std:.4f}")
                 f.write("\n")
 
     print(f"Summary report saved to: {output_path}")
@@ -177,16 +170,12 @@ if __name__ == "__main__":
     compare_parser.add_argument("csv_files", nargs="+", help="CSV files to compare")
 
     # Report command
-    report_parser = subparsers.add_parser(
-        "report", help="Generate text report from CSV"
-    )
+    report_parser = subparsers.add_parser("report", help="Generate text report from CSV")
     report_parser.add_argument("csv_file", help="CSV file to process")
     report_parser.add_argument("--output", help="Output text file")
 
     # Check models command
-    check_parser = subparsers.add_parser(
-        "check-models", help="Check available trained models"
-    )
+    check_parser = subparsers.add_parser("check-models", help="Check available trained models")
 
     args = parser.parse_args()
 

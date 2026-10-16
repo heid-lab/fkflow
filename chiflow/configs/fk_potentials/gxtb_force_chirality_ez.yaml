@@ -1,0 +1,13 @@
+# @package model
+# g-xTB force potential plus the chirality and E/Z potentials, summed.
+# The E/Z potential covers every double bond with an E/Z tag in reactant or
+# product (persistent_only: only bonds that are double on both sides).
+fk_potential_fns:
+  - _target_: flow_matching.utils.compute_chiral_volume
+    _partial_: true
+  - _target_: flow_matching.gxtb_potential.GXTBForcePotential
+    transform: log1p
+    weight: 1.0
+  - _target_: flow_matching.ez_potential.make_ez_potential
+    persistent_only: false
+    weight: 1.0

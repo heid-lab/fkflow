@@ -1,16 +1,16 @@
-import pickle
 import copy
+import pickle
+
 import numpy as np
 import torch
-from torch_geometric.data import Data, Dataset
-
-from rdkit import Chem
-from rdkit import RDLogger
+from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem
+from torch_geometric.data import Data, Dataset
 
 RDLogger.DisableLog("rdApp.*")
 
 from utils.chem import BOND_TYPES
+from utils.double_bond_utils import get_double_bond_stereo_data
 
 
 def generate_ts_data2(
@@ -29,11 +29,11 @@ def generate_ts_data2(
 
     N = r.GetNumAtoms()
     if rxn_block is not None:
-        pos = torch.Tensor(rxn_block) # rxn_block_RTSP_N_3D
+        pos = torch.Tensor(rxn_block)  # rxn_block_RTSP_N_3D
         pos = pos.transpose(0, 1)
         assert pos.shape[0] == N and p.GetNumAtoms() == N
     else:
-        pos = torch.zeros(N,3)
+        pos = torch.zeros(N, 3)
 
     r_perm = np.array([a.GetAtomMapNum() for a in r.GetAtoms()]) - 1
     p_perm = np.array([a.GetAtomMapNum() for a in p.GetAtoms()]) - 1
@@ -44,11 +44,13 @@ def generate_ts_data2(
 
     r_atomic_number, p_atomic_number = [], []
     r_feat, p_feat = [], []
-    
+
     def get_closest_value(v, feat):
         return v.get(
             feat,
-            v[min(v.keys(), key=lambda k: abs(int(k) - int(feat)))] # get closest key to 'feat' in 'v', return its value
+            v[
+                min(v.keys(), key=lambda k: abs(int(k) - int(feat)))
+            ],  # get closest key to 'feat' in 'v', return its value
         )
 
     # feat: len(v) done for one-hot encoding of feat based on len(v)
@@ -84,10 +86,23 @@ def generate_ts_data2(
     p_adj_perm = p_adj[p_perm_inv, :].T[p_perm_inv, :].T
     adj = r_adj_perm + p_adj_perm
 
-    r_cip_decr_chi_nbrs_C_4, r_chi_center_C, r_rs_tag_C = get_cip_tetra_atoms_in_decreasing_order(r, r_perm_inv)
-    p_cip_decr_chi_nbrs_C_4, p_chi_center_C, p_rs_tag_C = get_cip_tetra_atoms_in_decreasing_order(p, p_perm_inv)
+    r_cip_decr_chi_nbrs_C_4, r_chi_center_C, r_rs_tag_C = get_cip_tetra_atoms_in_decreasing_order(
+        r, r_perm_inv
+    )
+    p_cip_decr_chi_nbrs_C_4, p_chi_center_C, p_rs_tag_C = get_cip_tetra_atoms_in_decreasing_order(
+        p, p_perm_inv
+    )
 
-    # create directed edges for each chiral center (4 per center), 
+    # E/Z stereo of the double bonds (flow_matching/ez_potential.py). These index
+    # fields are not offset when batching; ez_potential adds the offsets itself.
+    r_db_c1c2_D_2, r_db_substituents_D_4, r_db_ez_tags_D, r_db_sub_case_D = (
+        get_double_bond_stereo_data(r, r_perm_inv)
+    )
+    p_db_c1c2_D_2, p_db_substituents_D_4, p_db_ez_tags_D, p_db_sub_case_D = (
+        get_double_bond_stereo_data(p, p_perm_inv)
+    )
+
+    # create directed edges for each chiral center (4 per center),
     # in the order of Rectus (R) or Sinister (S) (saved in r_rs_tag_C)
     def _get_chi_edges(cip_nbrs_C_4, rs_tag_C):
         # build edges (4 for each chiral center)
@@ -118,6 +133,7 @@ def generate_ts_data2(
 
     NO_BOND = 0
     CHI_EDGE_TYPE = len(BOND_TYPES) + 1
+
     def _compute_edge_types(mol, perm_inv, chi_adj, rows, cols):
         edge_types = []
         for src, dst in zip(rows, cols):
@@ -132,7 +148,7 @@ def generate_ts_data2(
 
     r_edge_type = _compute_edge_types(r, r_perm_inv, r_chi_adj, row, col)
     p_edge_type = _compute_edge_types(p, p_perm_inv, p_chi_adj, row, col)
-    
+
     edge_index = torch.tensor(np.array([row, col]), dtype=torch.long)
 
     perm = (edge_index[0] * N + edge_index[1]).argsort()
@@ -141,26 +157,32 @@ def generate_ts_data2(
     r_edge_type = r_edge_type[perm]
     p_edge_type = p_edge_type[perm]
 
-    edge_type = r_edge_type * (CHI_EDGE_TYPE+1) + p_edge_type # +1 for potential no bond
-    
+    edge_type = r_edge_type * (CHI_EDGE_TYPE + 1) + p_edge_type  # +1 for potential no bond
+
     data = TSData(
         atom_type=z,
         r_feat=r_feat,
         p_feat=p_feat,
         pos=pos,
-
         r_chi_center_C_index=r_chi_center_C,
         p_chi_center_C_index=p_chi_center_C,
         r_cip_decr_chi_nbrs_C_4_index=r_cip_decr_chi_nbrs_C_4,
         p_cip_decr_chi_nbrs_C_4_index=p_cip_decr_chi_nbrs_C_4,
         r_rs_tag_C=r_rs_tag_C,
         p_rs_tag_C=p_rs_tag_C,
-
+        r_db_c1c2_D_2=r_db_c1c2_D_2,
+        p_db_c1c2_D_2=p_db_c1c2_D_2,
+        r_db_substituents_D_4=r_db_substituents_D_4,
+        p_db_substituents_D_4=p_db_substituents_D_4,
+        r_db_ez_tags_D=r_db_ez_tags_D,
+        p_db_ez_tags_D=p_db_ez_tags_D,
+        r_db_sub_case_D=r_db_sub_case_D,
+        p_db_sub_case_D=p_db_sub_case_D,
         edge_index=edge_index,
         edge_type=edge_type,
         rdmol=(copy.deepcopy(r), copy.deepcopy(p)),
         smiles=f"{r_smarts}>>{p_smarts}",
-        #energies=energies,
+        # energies=energies,
     )
     return data, feat_dict
 
@@ -173,95 +195,76 @@ class TSData(Data):
         # List of attribute keys that should be concatenated along the first dimension (dim=0)
         # instead of the default last dimension for '*_index' suffixed tensors.
         keys_to_cat_dim_0 = {
-            'r_cip_decr_chi_nbrs_C_4_index',
-            'p_cip_decr_chi_nbrs_C_4_index',
+            "r_cip_decr_chi_nbrs_C_4_index",
+            "p_cip_decr_chi_nbrs_C_4_index",
         }
 
         if key in keys_to_cat_dim_0:
             # If the item is a tensor, concatenate along the first dimension.
             return 0
-        
+
         # For all other attributes, fall back to the default PyG behavior.
         return super().__cat_dim__(key, item, *args, **kwargs)
 
 
-def get_cip_r_s_tag(mol, perm_inv):
-    """
-    Get the CIP R/S tag for each atom in the molecule.
-    Ordered by ascending atom map number (with perm_inv).
-    R -> 0, S -> 1, undefined -> -1
-    :param mol: RDKit molecule object
-    :param perm_inv: Inverse permutation array for atom map numbers
-    :return: torch tensor of CIP tags
-    """
-    cip_tags_N = [-1] * mol.GetNumAtoms()
-    for i, a in enumerate(np.array(mol.GetAtoms())[perm_inv]):
-        if a.HasProp("_CIPCode"):
-            cip_tag = a.GetProp("_CIPCode")
-            if cip_tag == "R": cip_tags_N[i] = 0
-            elif cip_tag == "S": cip_tags_N[i] = 1
-            else: cip_tags_N[i] = -1
-        else:
-            cip_tags_N[i] = -1
-    
-    return torch.tensor(cip_tags_N, dtype=torch.long)
-
-
 def get_cip_tetra_atoms_in_decreasing_order(mol, perm_inv):
     """
-    Get the tetrahedral atoms map numbers in decreasing order of their CIP rank.
-    Ordered by ascending atom map number (with perm_inv).
-    Also returns a tensor with 0 for R and 1 for S for each chiral center.
+    Get the four neighbours of each R/S center in decreasing order of their CIP rank.
+    Atoms are indexed by their position in the list sorted by ascending atom map
+    number (with perm_inv). Also returns the R/S tag of each center: -1 for R, +1 for S.
     :param mol: RDKit molecule object
     :param perm_inv: Inverse permutation array for atom map numbers
-    :return: (tensor of tetrahedral atoms map numbers, tensor of chiral center indices, tensor of R/S tags)
+    :return: (neighbour indices (C, 4), chiral center indices (C,), R/S tags (C,))
     """
     AllChem.AssignStereochemistry(mol, cleanIt=True, force=True, flagPossibleStereoCenters=True)
-    #AssignCIPLabels(mol)
+    # AssignCIPLabels(mol)
     # stereo_centers_C = Chem.FindMolChiralCenters(mol, includeCIP=True, useLegacyImplementation=False)
-    mn_to_mnidx = {atom.GetAtomMapNum():i for i, atom in enumerate(np.array(mol.GetAtoms())[perm_inv])}
-    
+    mn_to_mnidx = {
+        atom.GetAtomMapNum(): i for i, atom in enumerate(np.array(mol.GetAtoms())[perm_inv])
+    }
+
     cip_decr_chi_nbrs_C_4 = []
     chi_center_C = []
     rs_tag_C = []
-    
-    #for center_idx, cip_label in stereo_centers_C:
+
+    # for center_idx, cip_label in stereo_centers_C:
     for chi_atom in mol.GetAtoms():
         cip_label = None
-        if chi_atom.HasProp('_CIPCode'):
-            cip_label = chi_atom.GetProp('_CIPCode')
-            if cip_label not in ('R', 'S'):
+        if chi_atom.HasProp("_CIPCode"):
+            cip_label = chi_atom.GetProp("_CIPCode")
+            if cip_label not in ("R", "S"):
                 continue
         else:
             continue
-        
-        #chi_atom = mol.GetAtomWithIdx(center_idx)
+
+        # chi_atom = mol.GetAtomWithIdx(center_idx)
         chi_map_num = chi_atom.GetAtomMapNum()
-        
+
         # 2. Gather tetrahedral neighbors
         tetra_atoms_4 = list(chi_atom.GetNeighbors())
-        if len(tetra_atoms_4) != 4: continue
-        
+        if len(tetra_atoms_4) != 4:
+            continue
+
         # Check if all neighbors have map numbers before proceeding
         if not all(atom.GetAtomMapNum() for atom in tetra_atoms_4):
             raise ValueError("All neighbor atoms must have AtomMapNum property set.")
-                
+
         # 3. Sort neighbors by CIP rank
-        ranks_4 = [int(n.GetProp('_CIPRank')) for n in tetra_atoms_4]
+        ranks_4 = [int(n.GetProp("_CIPRank")) for n in tetra_atoms_4]
         assert len(set(ranks_4)) == 4
         tetra_atoms_sorted_4 = [nbr for _, nbr in sorted(zip(ranks_4, tetra_atoms_4), reverse=True)]
-        
+
         # 4. Get the map numbers in sorted order
         rank_sorted_mapnums_4 = [n.GetAtomMapNum() for n in tetra_atoms_sorted_4]
-        
+
         # 5. Convert map numbers to indices in the sorted list (ordered by ascending map number)
         cip_decr_chi_nbrs_4 = [mn_to_mnidx[n] for n in rank_sorted_mapnums_4]
         chi_mn_idx = mn_to_mnidx[chi_map_num]
-        
+
         cip_decr_chi_nbrs_C_4.append(cip_decr_chi_nbrs_4)
         chi_center_C.append(chi_mn_idx)
-        rs_tag_C.append(-1 if cip_label == 'R' else 1)
-    
+        rs_tag_C.append(-1 if cip_label == "R" else 1)
+
     # Convert to tensor
     if len(cip_decr_chi_nbrs_C_4) == 0:
         cip_decr_chi_nbrs_C_4 = torch.empty((0, 4), dtype=torch.int32)
@@ -271,27 +274,8 @@ def get_cip_tetra_atoms_in_decreasing_order(mol, perm_inv):
         cip_decr_chi_nbrs_C_4 = torch.from_numpy(np.array(cip_decr_chi_nbrs_C_4, dtype=np.int32))
         chi_center_C = torch.from_numpy(np.array(chi_center_C, dtype=np.int32))
         rs_tag_C = torch.from_numpy(np.array(rs_tag_C, dtype=np.int32))
-    
+
     return cip_decr_chi_nbrs_C_4, chi_center_C, rs_tag_C
-
-
-def get_chi_center_nbrs(mol, perm_inv):
-    # have the nbrs in the list by ascending mapnum
-    mapnum_to_list_idx = {mapnum:i for i, mapnum in enumerate(mol.GetAtoms()[perm_inv])}
-    mapnums_C4 = []
-    for i, a in enumerate(np.array(mol.GetAtoms())[perm_inv]):
-        if not a.HasProp("_CIPCode"): continue
-        cip_tag = a.GetProp("_CIPCode")
-        if cip_tag not in ['R', 'S']: continue
-        tetra_atoms_4 = list(a.GetNeighbors())
-        if len(tetra_atoms_4) != 4: continue
-        mapnums_C4.extend([n.GetAtomMapNum() for n in tetra_atoms_4])
-    
-    mapnums_ordered_C4 = [-1] * len(mapnums_C4)
-    for i in range(len(mapnums_C4)):
-        mapnums_ordered_C4[mapnum_to_list_idx[mapnums_C4[i]]] = mapnums_C4[i]
-    
-    return torch.tensor(mapnums_ordered_C4, dtype=torch.long)
 
 
 class ConformationDataset(Dataset):
@@ -301,7 +285,7 @@ class ConformationDataset(Dataset):
         else:
             with open(path, "rb") as f:
                 self.data = pickle.load(f)
-        
+
         self.transform = transform
         self.atom_types = self._atom_types()
         self.edge_types = self._edge_types()
