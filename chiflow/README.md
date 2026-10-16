@@ -72,7 +72,7 @@ shuffle, so a regenerated split differs; use the published one (Zenodo, below).
 
 ## Trained model and published data
 
-Zenodo: **DOI to be added** — the trained GoFlow checkpoint (place it at
+Zenodo: [10.5281/zenodo.23416442](https://doi.org/10.5281/zenodo.23416442) — the trained GoFlow checkpoint (place it at
 `artifacts/paper/flow3/checkpoints/flow3-paper.ckpt`), the processed data and
 split, the generated samples and Sella/IRC results of the paper, and the DFT
 inputs and outputs of the DFT validation set.

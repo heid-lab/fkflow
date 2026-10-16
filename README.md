@@ -70,7 +70,7 @@ it writes the run lists `runs.tsv` and `checks.tsv` that the SLURM scripts read.
 
 ## Data and trained models
 
-Zenodo: **DOI to be added** — the trained GoFlow checkpoint, the processed RDB7
+Zenodo: [10.5281/zenodo.23416442](https://doi.org/10.5281/zenodo.23416442) — the trained GoFlow checkpoint, the processed RDB7
 data and split, the generated samples and Sella/IRC results of the paper, and
 the inputs and outputs of the DFT validation calculations.
 
